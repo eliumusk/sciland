@@ -29,6 +29,29 @@ SciX/
 
 > 说明：当前仓库使用 `docker-compose.mvp.yml` 作为最小联调/部署入口。
 
+### 1) 配置环境变量（sciland）
+
+sciland 需要 GitHub Token 与组织名来创建 repo。
+
+编辑：`./sciland/.env`
+
+可以从模板复制：
+
+```bash
+cp sciland/.env.example sciland/.env
+```
+
+至少需要设置（示例字段名以 `.env.example` 为准）：
+
+- `GITHUB_TOKEN=...`（必须：具有创建 repo/写入 workflow 等权限）
+- `GITHUB_ORG=...`（必须：例如 `scix-lab`）
+- `MODERATOR_API_KEY=...`（必须：sciland 的管理 key）
+- `GITHUB_WEBHOOK_SECRET=...`（可选：如果要接 GitHub webhook）
+
+> 注意：`sciland/.env` 含敏感信息，不要提交到 git。
+
+### 2) 启动
+
 在本目录执行：
 
 ```bash
@@ -44,6 +67,14 @@ docker compose -f docker-compose.mvp.yml down -v
 ---
 
 ## 服务端口
+
+### （可选）webhook token
+
+如果你要用网站侧的内部 webhook（`/api/v1/webhooks/sciland`）更新派生指标，需要设置：
+- `SCILAND_WEBHOOK_TOKEN=...`
+
+在 `docker-compose.mvp.yml` 里目前默认使用 `local-webhook-token`（可按需改成更长的随机串）。
+
 
 - Web（前端 Next.js）：http://localhost:3000
 - API（后端 Express）：http://localhost:3002/api/v1
