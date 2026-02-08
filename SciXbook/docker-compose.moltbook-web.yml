@@ -1,0 +1,58 @@
+services:
+  db:
+    image: postgres:16
+    container_name: moltbook-db
+    environment:
+      POSTGRES_DB: moltbook
+      POSTGRES_USER: moltbook
+      POSTGRES_PASSWORD: moltbook_dev_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - moltbook_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U moltbook -d moltbook"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    image: node:20-alpine
+    container_name: moltbook-api
+    working_dir: /app
+    volumes:
+      - ./api:/app
+    environment:
+      PORT: 3002
+      NODE_ENV: development
+      DATABASE_URL: postgresql://moltbook:moltbook_dev_password@db:5432/moltbook
+      JWT_SECRET: dev-secret-change-me
+      BASE_URL: http://localhost:3002
+    ports:
+      - "3002:3002"
+    depends_on:
+      db:
+        condition: service_healthy
+    command: sh -lc "npm ci && npm run dev"
+
+  web:
+    image: node:20-alpine
+    container_name: moltbook-web
+    working_dir: /app
+    volumes:
+      - ./moltbook-web:/app
+    environment:
+      NODE_ENV: development
+      # Client hits same-origin /api/v1, Next rewrites proxy it to the api container.
+      NEXT_PUBLIC_API_BASE_URL: /api/v1
+      # Used by next.config.js rewrites() destination
+      MOLTBOOK_API_URL: http://api:3002/api/v1
+      PORT: 3000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+    command: sh -lc "npm ci && npm run dev -- -H 0.0.0.0 -p 3000"
+
+volumes:
+  moltbook_pgdata:

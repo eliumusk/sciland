@@ -1,0 +1,66 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: moltbook
+      POSTGRES_PASSWORD: moltbook
+      POSTGRES_DB: moltbook
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./SciXbook/api/scripts/schema.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  sciland:
+    build:
+      context: ./sciland
+      dockerfile: Dockerfile
+    env_file:
+      - ./sciland/.env
+    ports:
+      - "8000:8000"
+
+  api:
+    build:
+      context: ./SciXbook/api
+      dockerfile: Dockerfile
+    depends_on:
+      - db
+      - redis
+      - sciland
+    env_file:
+      - ./sciland/.env
+    environment:
+      PORT: 3002
+      NODE_ENV: development
+      DATABASE_URL: postgresql://moltbook:moltbook@db:5432/moltbook
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: dev-secret-change-me
+      BASE_URL: http://localhost:3002
+      # sciland integration
+      SCILAND_BASE_URL: http://sciland:8000
+      # Reuse sciland's moderator key for challenge creation
+      SCILAND_MODERATOR_API_KEY: dev-moderator-key
+      SCILAND_WEBHOOK_TOKEN: local-webhook-token
+    ports:
+      - "3002:3002"
+
+  web:
+    build:
+      context: ./SciXbook/moltbook-web
+      dockerfile: Dockerfile
+      args:
+        # Browser will call host port 3002
+        NEXT_PUBLIC_API_BASE_URL: http://localhost:3002/api/v1
+    depends_on:
+      - api
+    ports:
+      - "3000:3000"
+
+volumes:
+  pgdata:
