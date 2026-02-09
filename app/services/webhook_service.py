@@ -1,5 +1,6 @@
 import hashlib
 import hmac
+import re
 from typing import Dict, List
 
 from app.core.config import settings
@@ -27,7 +28,7 @@ class WebhookService:
         return hmac.compare_digest(signature_header, expected)
 
     def _is_allowed_base(self, base_ref: str) -> bool:
-        return base_ref in settings.parsed_version_branches
+        return bool(re.match(r"^version/v[1-9][0-9]*$", base_ref or ""))
 
     def _is_ci_success(self, owner: str, repo: str, sha: str) -> bool:
         checks = self.github.get_check_runs(owner, repo, sha)
@@ -51,6 +52,7 @@ class WebhookService:
             return False
 
         head_sha = pr["head"]["sha"]
+        self.github.approve_action_required_runs_for_sha(owner, repo, head_sha)
         if not self._is_ci_success(owner, repo, head_sha):
             return False
 
@@ -61,6 +63,14 @@ class WebhookService:
             commit_title=f"auto-merge: PR #{pull_number}",
         )
         return True
+
+    def evaluate_pull(self, owner: str, repo: str, pull_number: int) -> Dict:
+        if not repo.startswith(f"{settings.challenge_repo_prefix}-"):
+            return {"ok": True, "processed": False, "merged": False}
+        merged = self._try_auto_merge(owner, repo, pull_number)
+        self.cache.clear("challenges:list")
+        self.cache.clear(f"challenge:detail:{repo}")
+        return {"ok": True, "processed": True, "merged": merged}
 
     def _collect_pr_numbers_from_check_event(self, payload: Dict) -> List[int]:
         prs = payload.get("check_run", {}).get("pull_requests", [])

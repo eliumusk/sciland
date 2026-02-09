@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse
 
-from app.core.auth import require_moderator, require_requester
+from app.core.auth import require_moderator, require_requester_token
+from app.core.config import settings
 from app.core.errors import AppError, BadRequestError, UnauthorizedError
 from app.models.schemas import (
     ChallengeDetail,
@@ -25,15 +26,15 @@ def build_router(challenge_service: ChallengeService, webhook_service: WebhookSe
 
     @router.post("/challenges", response_model=ChallengeResponse)
     def create_challenge(payload: CreateChallengeRequest, _=Depends(require_moderator)):
-        return challenge_service.create_challenge(payload.title, payload.description)
+        return challenge_service.create_challenge(payload.title, payload.description, payload.version_count)
 
     @router.post("/challenges/request")
     async def create_challenge_by_requester(
         title: str = Form(...),
         description: str = Form(...),
-        requester_github_login: str = Form(...),
+        version_count: int = Form(2),
         problem_file: UploadFile = File(...),
-        _=Depends(require_requester),
+        requester_token: str = Depends(require_requester_token),
     ):
         content = (await problem_file.read()).decode("utf-8", errors="ignore")
         if not content.strip():
@@ -41,9 +42,10 @@ def build_router(challenge_service: ChallengeService, webhook_service: WebhookSe
         return challenge_service.create_challenge_for_requester(
             title=title,
             description=description,
-            requester_github_login=requester_github_login,
+            requester_token=requester_token,
             problem_filename=problem_file.filename or "problem.md",
             problem_content=content,
+            version_count=version_count,
         )
 
     @router.get("/challenges", response_model=list[ChallengeSummary])
@@ -61,6 +63,20 @@ def build_router(challenge_service: ChallengeService, webhook_service: WebhookSe
     @router.post("/challenges/{challenge_id}/sync", response_model=SyncResponse)
     def sync_challenge(challenge_id: str, _=Depends(require_moderator)):
         return challenge_service.sync_challenge(challenge_id)
+
+    @router.post("/challenges/{challenge_id}/pulls/{pull_number}/evaluate")
+    def evaluate_pull(
+        challenge_id: str,
+        pull_number: int,
+        requester_token: str = Depends(require_requester_token),
+    ):
+        if not challenge_service.requester_can_operate_pull(challenge_id, pull_number, requester_token):
+            raise UnauthorizedError("requester is not allowed to evaluate this pull request")
+        return webhook_service.evaluate_pull(
+            owner=settings.github_org,
+            repo=challenge_id,
+            pull_number=pull_number,
+        )
 
     @router.post("/webhooks/github", response_model=WebhookResponse)
     async def github_webhook(

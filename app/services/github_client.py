@@ -40,6 +40,34 @@ class GithubClient:
 
         return data
 
+    def _request_with_token(self, token: str, method: str, path: str, expected=(200,), json_body=None):
+        url = f"{self.base_url}{path}"
+        headers = {
+            "Accept": "application/vnd.github+json",
+            "Authorization": f"Bearer {token}",
+            "X-GitHub-Api-Version": "2022-11-28",
+            "User-Agent": "sciland-mvp-api",
+        }
+        response = requests.request(method=method, url=url, headers=headers, json=json_body, timeout=30)
+
+        data = None
+        if response.text:
+            try:
+                data = response.json()
+            except Exception:
+                data = {"raw": response.text}
+
+        if response.status_code not in expected:
+            message = data.get("message") if isinstance(data, dict) else "GitHub API error"
+            if response.status_code == 404:
+                raise NotFoundError(message or "resource not found")
+            raise GithubApiError(message or "GitHub API error", response.status_code, data)
+
+        return data
+
+    def get_authenticated_user(self, token: str) -> Dict[str, Any]:
+        return self._request_with_token(token, "GET", "/user")
+
     def create_org_repo(self, name: str, description: str) -> Dict[str, Any]:
         return self._request(
             "POST",
@@ -71,6 +99,19 @@ class GithubClient:
                 break
             page += 1
         return repos
+
+    def list_branches(self, owner: str, repo: str, per_page: int = 100) -> List[Dict[str, Any]]:
+        branches = []
+        page = 1
+        while True:
+            chunk = self._request("GET", f"/repos/{owner}/{repo}/branches?per_page={per_page}&page={page}")
+            if not chunk:
+                break
+            branches.extend(chunk)
+            if len(chunk) < per_page:
+                break
+            page += 1
+        return branches
 
     def get_branch(self, owner: str, repo: str, branch: str) -> Dict[str, Any]:
         return self._request("GET", f"/repos/{owner}/{repo}/branches/{branch}")
@@ -162,6 +203,29 @@ class GithubClient:
 
     def list_check_suites_for_ref(self, owner: str, repo: str, ref: str) -> Dict[str, Any]:
         return self._request("GET", f"/repos/{owner}/{repo}/commits/{ref}/check-suites")
+
+    def list_actions_runs(self, owner: str, repo: str, per_page: int = 50) -> Dict[str, Any]:
+        return self._request("GET", f"/repos/{owner}/{repo}/actions/runs?per_page={per_page}")
+
+    def approve_actions_run(self, owner: str, repo: str, run_id: int) -> bool:
+        try:
+            self._request("POST", f"/repos/{owner}/{repo}/actions/runs/{run_id}/approve", expected=(201, 202, 204))
+            return True
+        except GithubApiError:
+            return False
+
+    def approve_action_required_runs_for_sha(self, owner: str, repo: str, sha: str):
+        try:
+            runs = self.list_actions_runs(owner, repo, per_page=50).get("workflow_runs", [])
+        except Exception:
+            return
+        for run in runs:
+            if run.get("head_sha") != sha:
+                continue
+            if run.get("status") == "completed" and run.get("conclusion") == "action_required":
+                run_id = run.get("id")
+                if isinstance(run_id, int):
+                    self.approve_actions_run(owner, repo, run_id)
 
     def get_repo_readme(self, owner: str, repo: str) -> Optional[str]:
         try:

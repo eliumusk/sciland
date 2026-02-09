@@ -7,7 +7,6 @@ class Settings(BaseSettings):
     port: int = Field(8000, env="PORT")
 
     github_token: str = Field("", env="GITHUB_TOKEN")
-    github_token2: str = Field("", env="GITHUB_TOKEN2")
     github_org: str = Field("SciLand-9", env="GITHUB_ORG")
     github_api_base: str = Field("https://api.github.com", env="GITHUB_API_BASE")
 
@@ -15,7 +14,6 @@ class Settings(BaseSettings):
     webhook_secret: str = Field("", env="GITHUB_WEBHOOK_SECRET")
 
     challenge_repo_prefix: str = Field("challenge", env="CHALLENGE_REPO_PREFIX")
-    version_branches: str = Field("version/v1,version/v2", env="VERSION_BRANCHES")
 
     cache_ttl_seconds: int = Field(30, env="CACHE_TTL_SECONDS")
     cache_file: str = Field("data/webhook_cache.json", env="CACHE_FILE")
@@ -23,10 +21,5 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         case_sensitive = False
-
-    @property
-    def parsed_version_branches(self) -> list:
-        return [item.strip() for item in self.version_branches.split(",") if item.strip()]
-
 
 settings = Settings()

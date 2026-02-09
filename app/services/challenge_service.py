@@ -24,15 +24,31 @@ class ChallengeService:
     def _is_challenge_repo(self, repo_name: str) -> bool:
         return repo_name.startswith(f"{settings.challenge_repo_prefix}-")
 
-    def _build_challenge_md(self, title: str, description: str) -> str:
+    def _resolve_version_branches(self, version_count: int = 2) -> List[str]:
+        if version_count <= 0:
+            raise BadRequestError("version_count must be greater than 0")
+        if version_count > 500:
+            raise BadRequestError("version_count must be 500 or less")
+        return [f"version/v{i}" for i in range(1, version_count + 1)]
+
+    def _extract_version_branches_from_repo(self, owner: str, repo: str) -> List[str]:
+        branches = self.github.list_branches(owner, repo, per_page=100)
+        names = [item.get("name", "") for item in branches]
+        version_branches = []
+        for name in names:
+            if re.match(r"^version/v[1-9][0-9]*$", name):
+                version_branches.append(name)
+        version_branches.sort(key=lambda x: int(x.replace("version/v", "", 1)))
+        return version_branches
+
+    def _build_challenge_md(self, title: str, description: str, version_branches: List[str]) -> str:
         lines = [
             f"# {title}",
             "",
             description,
             "",
             "## Version Branches",
-            "- version/v1",
-            "- version/v2",
+            *[f"- {branch}" for branch in version_branches],
             "",
             "## Submission",
             "Create PR from your local clone to one of version branches.",
@@ -40,15 +56,14 @@ class ChallengeService:
         ]
         return "\n".join(lines)
 
-    def _build_default_ci_workflow(self) -> str:
+    def _build_default_ci_workflow(self, version_branches: List[str]) -> str:
         lines = [
             "name: skill-ci",
             "",
             "on:",
             "  pull_request:",
             "    branches:",
-            "      - version/v1",
-            "      - version/v2",
+            *[f"      - {branch}" for branch in version_branches],
             "",
             "jobs:",
             "  validate:",
@@ -60,7 +75,8 @@ class ChallengeService:
         ]
         return "\n".join(lines)
 
-    def _create_repo_with_branches(self, title: str, description: str) -> Dict:
+    def _create_repo_with_branches(self, title: str, description: str, version_count: int = 2) -> Dict:
+        version_branches = self._resolve_version_branches(version_count)
         repo_name = f"{settings.challenge_repo_prefix}-{self._slugify(title)}-{self._short_id()}"
         repo = self.github.create_org_repo(
             name=repo_name,
@@ -76,15 +92,15 @@ class ChallengeService:
             repo=repo_name,
             branch=default_branch,
             path="CHALLENGE.md",
-            content=self._build_challenge_md(title.strip(), description.strip()),
+            content=self._build_challenge_md(title.strip(), description.strip(), version_branches),
             message="docs: add challenge",
         )
 
-        for branch in settings.parsed_version_branches:
+        for branch in version_branches:
             self.github.ensure_branch(owner, repo_name, branch, base_sha)
 
-        ci_workflow = self._build_default_ci_workflow()
-        for branch in [default_branch] + settings.parsed_version_branches:
+        ci_workflow = self._build_default_ci_workflow(version_branches)
+        for branch in [default_branch] + version_branches:
             self.github.put_file(
                 owner=owner,
                 repo=repo_name,
@@ -94,7 +110,7 @@ class ChallengeService:
                 message=f"chore(ci): add skill workflow on {branch}",
             )
 
-        for branch in settings.parsed_version_branches:
+        for branch in version_branches:
             self.github.protect_branch(owner, repo_name, branch)
 
         self.github.protect_branch(owner, repo_name, default_branch)
@@ -103,40 +119,47 @@ class ChallengeService:
             "repo_name": repo_name,
             "repo_url": repo["html_url"],
             "default_branch": default_branch,
+            "version_branches": version_branches,
         }
 
-    def create_challenge(self, title: str, description: str) -> Dict:
+    def create_challenge(self, title: str, description: str, version_count: int = 2) -> Dict:
         if not title.strip():
             raise BadRequestError("title is required")
         if not description.strip():
             raise BadRequestError("description is required")
 
-        created = self._create_repo_with_branches(title, description)
+        created = self._create_repo_with_branches(title, description, version_count=version_count)
 
         self.cache.clear(f"challenges:list")
 
         return {
             "challenge_id": created["repo_name"],
             "repo_url": created["repo_url"],
-            "branches": [created["default_branch"]] + settings.parsed_version_branches,
+            "branches": [created["default_branch"]] + created["version_branches"],
         }
 
     def create_challenge_for_requester(
         self,
         title: str,
         description: str,
-        requester_github_login: str,
+        requester_token: str,
         problem_filename: str,
         problem_content: str,
+        version_count: int = 2,
     ) -> Dict:
-        if not requester_github_login.strip():
-            raise BadRequestError("requester_github_login is required")
+        if not requester_token.strip():
+            raise BadRequestError("requester token is required")
         if not problem_filename.strip():
             raise BadRequestError("problem file name is required")
         if not problem_content.strip():
             raise BadRequestError("problem file content is required")
 
-        created = self._create_repo_with_branches(title, description)
+        requester = self.github.get_authenticated_user(requester_token)
+        requester_login = requester.get("login", "").strip()
+        if not requester_login:
+            raise BadRequestError("unable to resolve requester from token")
+
+        created = self._create_repo_with_branches(title, description, version_count=version_count)
 
         safe_file = problem_filename.strip().replace("\\", "/").split("/")[-1] or "problem.md"
         self.github.put_file(
@@ -148,20 +171,27 @@ class ChallengeService:
             message=f"docs: add problem file {safe_file}",
         )
 
-        self.github.add_repo_collaborator(
-            owner=created["owner"],
-            repo=created["repo_name"],
-            username=requester_github_login.strip(),
-            permission="push",
-        )
+        collaborator_granted = False
+        try:
+            self.github.add_repo_collaborator(
+                owner=created["owner"],
+                repo=created["repo_name"],
+                username=requester_login,
+                permission="push",
+            )
+            collaborator_granted = True
+        except Exception:
+            # Some org policies force fork-only contribution. We keep flow working via fork+PR.
+            collaborator_granted = False
 
         self.cache.clear("challenges:list")
         return {
             "challenge_id": created["repo_name"],
             "repo_url": created["repo_url"],
-            "branches": [created["default_branch"]] + settings.parsed_version_branches,
-            "requester": requester_github_login.strip(),
+            "branches": [created["default_branch"]] + created["version_branches"],
+            "requester": requester_login,
             "problem_file": safe_file,
+            "collaborator_granted": collaborator_granted,
         }
 
     def list_challenges(self) -> List[Dict]:
@@ -221,7 +251,7 @@ class ChallengeService:
             "description": self.github.get_repo_readme(settings.github_org, challenge_id),
             "repo_url": repo["html_url"],
             "default_branch": repo.get("default_branch", "main"),
-            "version_branches": settings.parsed_version_branches,
+            "version_branches": self._extract_version_branches_from_repo(settings.github_org, challenge_id),
             "recent_submissions": submissions,
         }
 
@@ -257,3 +287,18 @@ class ChallengeService:
             "synced": True,
             "submission_count": len(submissions),
         }
+
+    def requester_can_operate_pull(self, challenge_id: str, pull_number: int, requester_token: str) -> bool:
+        if not self._is_challenge_repo(challenge_id):
+            raise NotFoundError("challenge not found")
+        if pull_number <= 0:
+            raise BadRequestError("pull number must be positive")
+        requester = self.github.get_authenticated_user(requester_token)
+        requester_login = requester.get("login", "")
+        if not requester_login:
+            return False
+
+        pr = self.github.get_pull(settings.github_org, challenge_id, pull_number)
+        author_login = (pr.get("user") or {}).get("login", "")
+        head_owner_login = ((pr.get("head") or {}).get("repo") or {}).get("owner", {}).get("login", "")
+        return requester_login in {author_login, head_owner_login}

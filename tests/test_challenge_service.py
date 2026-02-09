@@ -62,8 +62,22 @@ class FakeGithub:
             }
         ]
 
+    def list_branches(self, owner, repo, per_page=100):
+        return [
+            {'name': 'main'},
+            {'name': 'version/v1'},
+            {'name': 'version/v2'},
+            {'name': 'version/v3'},
+        ]
+
     def get_repo_readme(self, owner, repo):
         return '# Demo'
+
+    def get_authenticated_user(self, token):
+        return {'login': 'user-token'}
+
+    def add_repo_collaborator(self, owner, repo, username, permission='push'):
+        return {'ok': True}
 
 
 class FakeCache:
@@ -82,10 +96,11 @@ class FakeCache:
 
 def test_create_challenge_returns_repo_based_challenge_id():
     service = ChallengeService(FakeGithub(), FakeCache())
-    result = service.create_challenge('My Challenge', 'Long enough description for challenge creation.')
+    result = service.create_challenge('My Challenge', 'Long enough description for challenge creation.', version_count=3)
     assert result['challenge_id'].startswith('challenge-my-challenge-')
     assert 'version/v1' in result['branches']
     assert 'version/v2' in result['branches']
+    assert 'version/v3' in result['branches']
 
 
 def test_list_challenges_filters_non_challenge_repos():
@@ -93,3 +108,16 @@ def test_list_challenges_filters_non_challenge_repos():
     items = service.list_challenges()
     assert len(items) == 1
     assert items[0]['challenge_id'] == 'challenge-demo-abc123'
+
+
+def test_create_challenge_for_requester_uses_requester_token_identity():
+    service = ChallengeService(FakeGithub(), FakeCache())
+    result = service.create_challenge_for_requester(
+        title='Requester Challenge',
+        description='Long enough description for requester challenge flow.',
+        requester_token='token-abc',
+        problem_filename='problem.md',
+        problem_content='problem content',
+    )
+    assert result['requester'] == 'user-token'
+    assert result['problem_file'] == 'problem.md'

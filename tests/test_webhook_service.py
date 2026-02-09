@@ -22,6 +22,9 @@ class FakeGithub:
     def get_check_runs(self, owner, repo, ref):
         return self.checks
 
+    def approve_action_required_runs_for_sha(self, owner, repo, sha):
+        return None
+
     def merge_pull(self, owner, repo, pull_number, commit_title):
         self.merged = True
         return {'merged': True}
@@ -69,3 +72,11 @@ def test_signature_optional_when_secret_empty(monkeypatch):
     svc = WebhookService(gh, FakeCache())
 
     assert svc.verify_signature(b'{}', '') is True
+
+
+def test_evaluate_pull_calls_auto_merge_logic():
+    gh = FakeGithub()
+    svc = WebhookService(gh, FakeCache())
+    result = svc.evaluate_pull('SciLand-9', 'challenge-test-123', 1)
+    assert result['processed'] is True
+    assert result['merged'] is True

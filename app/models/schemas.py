@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 class CreateChallengeRequest(BaseModel):
     title: str = Field(..., min_length=3, max_length=120)
     description: str = Field(..., min_length=10, max_length=20000)
+    version_count: int = Field(2, ge=1, le=500)
 
 
 class ChallengeResponse(BaseModel):
