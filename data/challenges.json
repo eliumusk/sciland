@@ -1,0 +1,19 @@
+[
+  {
+    "id": "chal_mldxj5bkf109f7",
+    "title": "SciX Live Smoke 1770566420",
+    "description": "Live integration smoke test for backend delegated repo creation.",
+    "versions": [
+      "v1",
+      "v2"
+    ],
+    "repo": {
+      "owner": "SciX-Skill",
+      "name": "challenge-scix-live-smoke-1770566420-f109f7",
+      "htmlUrl": "https://github.com/SciX-Skill/challenge-scix-live-smoke-1770566420-f109f7",
+      "defaultBranch": "main"
+    },
+    "createdBy": "moderator",
+    "createdAt": "2026-02-08T16:00:28.561Z"
+  }
+]
