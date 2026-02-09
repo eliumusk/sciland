@@ -62,7 +62,7 @@ def test_auto_merge_when_checks_success():
 
     payload = {
         'action': 'opened',
-        'repository': {'name': 'challenge-test-123', 'owner': {'login': 'SciX-Skill'}},
+        'repository': {'name': 'test-skill', 'owner': {'login': 'SciX-Skill'}},
         'pull_request': {'number': 1},
     }
 
@@ -79,7 +79,7 @@ def test_no_auto_merge_for_wrong_base_branch():
 
     payload = {
         'action': 'opened',
-        'repository': {'name': 'challenge-test-123', 'owner': {'login': 'SciX-Skill'}},
+        'repository': {'name': 'test-skill', 'owner': {'login': 'SciX-Skill'}},
         'pull_request': {'number': 1},
     }
 
@@ -100,6 +100,6 @@ def test_signature_optional_when_secret_empty(monkeypatch):
 def test_evaluate_pull_calls_auto_merge_logic():
     gh = FakeGithub()
     svc = WebhookService(gh, FakeCache())
-    result = svc.evaluate_pull('SciX-Skill', 'challenge-test-123', 1)
+    result = svc.evaluate_pull('SciX-Skill', 'test-skill', 1)
     assert result['processed'] is True
     assert result['merged'] is True

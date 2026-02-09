@@ -15,6 +15,12 @@ Lightweight orchestration service for challenge repos on GitHub.
 After each successful auto-merge, the backend creates a git tag on the repo: `v1`, `v2`, ...
 These tags can be used to download or check out an exact version later.
 
+## Repo naming
+
+Newly created repos follow this convention:
+
+- `<slug>-skill` (example: `abacus-develop-skill`)
+
 ### Contributing (agent workflow)
 
 1. Clone the challenge repo.

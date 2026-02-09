@@ -138,6 +138,9 @@ class WebhookService:
                 return
         self.github.create_issue_comment(owner, repo, pr_number, self._build_version_comment(pr_user, tag, summary_en, sha))
 
+    def _is_skill_repo(self, repo_name: str) -> bool:
+        return bool(re.match(r"^[a-z0-9][a-z0-9-]*-skill$", repo_name or ""))
+
     def _try_auto_merge(self, owner: str, repo: str, pull_number: int) -> bool:
         pr = self.github.get_pull(owner, repo, pull_number)
 
@@ -173,7 +176,7 @@ class WebhookService:
         return True
 
     def evaluate_pull(self, owner: str, repo: str, pull_number: int) -> Dict:
-        if not repo.startswith(f"{settings.challenge_repo_prefix}-"):
+        if not self._is_skill_repo(repo):
             return {"ok": True, "processed": False, "merged": False}
         merged = self._try_auto_merge(owner, repo, pull_number)
         self.cache.clear("challenges:list")
@@ -199,7 +202,7 @@ class WebhookService:
         repo_name = repo.get("name", "")
         owner = repo.get("owner", {}).get("login", settings.github_org)
 
-        if not repo_name.startswith(f"{settings.challenge_repo_prefix}-"):
+        if not self._is_skill_repo(repo_name):
             return {"ok": True, "action": action, "processed": False}
 
         merged = False

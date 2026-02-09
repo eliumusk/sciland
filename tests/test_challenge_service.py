@@ -29,9 +29,9 @@ class FakeGithub:
     def list_org_repos(self):
         return [
             {
-                'name': 'challenge-demo-abc123',
+                'name': 'demo-skill',
                 'description': 'SciX challenge: Demo',
-                'html_url': 'https://github.com/SciX-Skill/challenge-demo-abc123',
+                'html_url': 'https://github.com/SciX-Skill/demo-skill',
                 'default_branch': 'main',
             },
             {
@@ -97,7 +97,7 @@ class FakeCache:
 def test_create_challenge_returns_repo_based_challenge_id():
     service = ChallengeService(FakeGithub(), FakeCache())
     result = service.create_challenge('My Challenge', 'Long enough description for challenge creation.')
-    assert result['challenge_id'].startswith('challenge-my-challenge-')
+    assert '-skill-' in result['challenge_id']
     assert result['branches'] == ['main']
 
 
@@ -105,7 +105,7 @@ def test_list_challenges_filters_non_challenge_repos():
     service = ChallengeService(FakeGithub(), FakeCache())
     items = service.list_challenges()
     assert len(items) == 1
-    assert items[0]['challenge_id'] == 'challenge-demo-abc123'
+    assert items[0]['challenge_id'] == 'demo-skill'
 
 
 def test_create_challenge_for_requester_uses_requester_token_identity():

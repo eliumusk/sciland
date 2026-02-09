@@ -13,8 +13,6 @@ class Settings(BaseSettings):
     moderator_api_key: str = Field("", env="MODERATOR_API_KEY")
     webhook_secret: str = Field("", env="GITHUB_WEBHOOK_SECRET")
 
-    challenge_repo_prefix: str = Field("challenge", env="CHALLENGE_REPO_PREFIX")
-
     cache_ttl_seconds: int = Field(30, env="CACHE_TTL_SECONDS")
     cache_file: str = Field("data/webhook_cache.json", env="CACHE_FILE")
 

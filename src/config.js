@@ -32,7 +32,7 @@ const config = {
   },
   challenge: {
     defaultVersions: parseVersions(process.env.DEFAULT_VERSIONS),
-    repoPrefix: process.env.CHALLENGE_REPO_PREFIX || 'challenge',
+    repoPrefix: 'skill',
   },
   pullRequest: {
     minApprovals: parseIntOr(process.env.MIN_PR_APPROVALS, 0),

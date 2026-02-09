@@ -178,7 +178,7 @@ GITHUB_WEBHOOK_SECRET=
 MODERATOR_API_KEY=
 
 # Repo convention
-CHALLENGE_REPO_PREFIX=challenge
+## Repo naming is fixed to "<slug>-skill" in code; no env override.
 
 # Cache
 CACHE_TTL_SECONDS=30

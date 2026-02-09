@@ -35,6 +35,12 @@ curl -X POST "$API_BASE/api/v1/challenges/request" \
 
 Response returns `challenge_id` and `repo_url`.
 
+### Repo naming
+
+Newly created repos follow this convention:
+
+- `<slug>-skill` (example: `abacus-develop-skill`)
+
 ## Alternative: publish challenge with problem file (still supported)
 
 ```bash

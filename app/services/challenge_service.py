@@ -3,7 +3,7 @@ import time
 from typing import Dict, List
 
 from app.core.config import settings
-from app.core.errors import BadRequestError, NotFoundError
+from app.core.errors import BadRequestError, GithubApiError, NotFoundError
 from app.services.cache_store import CacheStore
 from app.services.github_client import GithubClient
 
@@ -21,8 +21,9 @@ class ChallengeService:
     def _short_id(self) -> str:
         return format(int(time.time() * 1000), "x")[-6:]
 
-    def _is_challenge_repo(self, repo_name: str) -> bool:
-        return repo_name.startswith(f"{settings.challenge_repo_prefix}-")
+    def _is_skill_repo(self, repo_name: str) -> bool:
+        # Strict naming: "<slug>-skill"
+        return bool(re.match(r"^[a-z0-9][a-z0-9-]*-skill$", repo_name or ""))
 
     def _extract_version_branches_from_repo(self, owner: str, repo: str) -> List[str]:
         branches = self.github.list_branches(owner, repo, per_page=100)
@@ -72,11 +73,17 @@ class ChallengeService:
         return "\n".join(lines)
 
     def _create_repo(self, title: str, description: str) -> Dict:
-        repo_name = f"{settings.challenge_repo_prefix}-{self._slugify(title)}-{self._short_id()}"
-        repo = self.github.create_org_repo(
-            name=repo_name,
-            description=f"SciX challenge: {title.strip()}",
-        )
+        # New naming scheme includes the marker word (default: "skill") to make intent obvious.
+        # Example: "abacus-develop-skill"
+        repo_name = f"{self._slugify(title)}-skill"
+        try:
+            repo = self.github.create_org_repo(
+                name=repo_name,
+                description=f"SciX challenge: {title.strip()}",
+            )
+        except GithubApiError as exc:
+            # Most common: 422 "name already exists on this account"
+            raise BadRequestError(f"failed to create repo {repo_name}", details=exc.details)
 
         owner = repo["owner"]["login"]
         default_branch = repo.get("default_branch", "main")
@@ -190,7 +197,7 @@ class ChallengeService:
         items = []
         for repo in repos:
             name = repo.get("name", "")
-            if not self._is_challenge_repo(name):
+            if not self._is_skill_repo(name):
                 continue
             items.append(
                 {
@@ -205,7 +212,7 @@ class ChallengeService:
         return items
 
     def get_challenge_detail(self, challenge_id: str) -> Dict:
-        if not self._is_challenge_repo(challenge_id):
+        if not self._is_skill_repo(challenge_id):
             raise NotFoundError("challenge not found")
 
         cache_key = f"challenge:detail:{challenge_id}"
@@ -245,7 +252,7 @@ class ChallengeService:
         return detail
 
     def list_submissions(self, challenge_id: str) -> List[Dict]:
-        if not self._is_challenge_repo(challenge_id):
+        if not self._is_skill_repo(challenge_id):
             raise NotFoundError("challenge not found")
 
         pulls = self.github.list_pulls(settings.github_org, challenge_id, state="all", per_page=100)
@@ -275,7 +282,7 @@ class ChallengeService:
         }
 
     def requester_can_operate_pull(self, challenge_id: str, pull_number: int, requester_token: str) -> bool:
-        if not self._is_challenge_repo(challenge_id):
+        if not self._is_skill_repo(challenge_id):
             raise NotFoundError("challenge not found")
         if pull_number <= 0:
             raise BadRequestError("pull number must be positive")
