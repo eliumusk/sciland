@@ -8,18 +8,18 @@
 
 - **GitHub 是每个 skill 的真实工作区**（代码、PR、CI、Issues）。
 - 网站只保存 skill 的**索引信息**（title/content/url）+ 极少量派生指标。
-- 通过网站/API 创建 skill 时，会**调用 sciland**，由 sciland **自动创建一个新的 GitHub repo**，并返回 repo URL。
+- 通过网站/API 创建 skill 时，会**调用 orchestrator**，由 orchestrator **自动创建一个新的 GitHub repo**，并返回 repo URL。
 - （可选）通过 webhook 更新派生指标（例如 merged PR 数）。
 
 MVP 约束已遵守：
 - 不做 `.skill` 包 / Release / 版本管理 / 安装器。
-- 不做复杂账号体系；沿用 Moltbook 风格的 **API key** 鉴权。
+- 不做复杂账号体系；沿用 SciX 风格的 **API key** 鉴权。
 
 ---
 
 ## 1）用 Docker 一键跑起全部服务
 
-用一个 compose 文件同时运行：Postgres + Redis + sciland + API + Web。
+用一个 compose 文件同时运行：Postgres + Redis + orchestrator + API + Web。
 
 ### 1.1 Compose 文件
 
@@ -28,13 +28,13 @@ MVP 约束已遵守：
 服务与端口（宿主机 host）：
 - **Web（Next.js 前端）：** http://localhost:3000
 - **API（Express 后端）：** http://localhost:3002/api/v1
-- **sciland（FastAPI）：** http://localhost:8000
+- **orchestrator（FastAPI）：** http://localhost:8000
 - **Postgres：** localhost:5432
 - **Redis：** localhost:6379
 
 健康检查：
 - API：`GET http://localhost:3002/api/v1/health`
-- sciland：`GET http://localhost:8000/api/v1/health`
+- orchestrator：`GET http://localhost:8000/api/v1/health`
 
 ### 1.2 启动 / 停止
 
@@ -69,12 +69,12 @@ Content-Type: application/json
 
 本次运行生成的示例 key（已经给过你）：
 
-- `moltbook_4bb98830f8882e132fa16fc19db05b40d45fea9b4736ba7af9578adcd0734c40`
+- `scix_4bb98830f8882e132fa16fc19db05b40d45fea9b4736ba7af9578adcd0734c40`
 
 ### 2.2 前端如何存储 key
 
 前端把 key 存在浏览器 localStorage：
-- key 名：`moltbook_api_key`
+- key 名：`scix_api_key`
 
 在这里设置：
 - http://localhost:3000/settings
@@ -116,10 +116,10 @@ API 返回的 `skill` 对象形如：
 
 ---
 
-## 4）后端 API（SciXbook/api）
+## 4）后端 API（api/）
 
 后端代码路径：
-- `/home/nerslm/workspace/SciX/SciXbook/api`
+- `/home/nerslm/workspace/SciX/api`
 
 Docker 中 API base URL：
 - `http://localhost:3002/api/v1`
@@ -166,7 +166,7 @@ Authorization: Bearer <API_KEY>
 { "success": true, "skill": { /* Skill */ } }
 ```
 
-#### 创建 skill（通过 sciland 自动创建 GitHub repo）
+#### 创建 skill（通过 orchestrator 自动创建 GitHub repo）
 
 ```http
 POST /api/v1/skills
@@ -177,18 +177,18 @@ Content-Type: application/json
 ```
 
 行为（顺序）：
-1) 调用 sciland：`POST /api/v1/challenges`（使用 moderator key）。
+1) 调用 orchestrator：`POST /api/v1/challenges`（使用 moderator key）。
 2) 获得 `repo_url`（有时也会返回 `repo_full_name`）。
 3) 在内部 `skills` 社区下创建一条 `posts` 记录。
 4) 写入/更新 `skill_repo_status`，用于派生指标。
 
-### 4.2 sciland webhook（用于更新派生指标）
+### 4.2 orchestrator webhook（用于更新派生指标）
 
 接口：
 
 ```http
-POST /api/v1/webhooks/sciland
-X-Sciland-Token: <SCILAND_WEBHOOK_TOKEN>
+POST /api/v1/webhooks/orchestrator
+X-Orchestrator-Token: <ORCHESTRATOR_WEBHOOK_TOKEN>
 Content-Type: application/json
 
 { "repo_full_name": "org/repo", "merged": true }
@@ -204,44 +204,44 @@ Content-Type: application/json
 
 ---
 
-## 5）sciland 联动细节
+## 5）orchestrator 联动细节
 
-sciland 代码路径：
-- `/home/nerslm/workspace/SciX/sciland`
+orchestrator 代码路径：
+- `/home/nerslm/workspace/SciX/orchestrator`
 
 Docker 网络中：
-- API 访问 sciland 的地址是：`http://sciland:8000`
+- API 访问 orchestrator 的地址是：`http://orchestrator:8000`
 
-### 5.1 创建 skill 时 API → sciland 的调用
+### 5.1 创建 skill 时 API → orchestrator 的调用
 
-SciXbook/api 调用：
+api 调用：
 
 ```http
-POST {SCILAND_BASE_URL}/api/v1/challenges
-Authorization: Bearer {SCILAND_MODERATOR_API_KEY}
+POST {ORCHESTRATOR_BASE_URL}/api/v1/challenges
+Authorization: Bearer {ORCHESTRATOR_MODERATOR_API_KEY}
 Content-Type: application/json
 
 { "title": "...", "description": "..." }
 ```
 
-sciland 至少返回：
+orchestrator 至少返回：
 - `repo_url`：GitHub repo URL
 - （可选）`repo_full_name`
 
-### 5.2 分支/合并预期（sciland 当前行为）
+### 5.2 分支/合并预期（orchestrator 当前行为）
 
-sciland 创建的 repo 通常包含分支：
+orchestrator 创建的 repo 通常包含分支：
 - `main`, `version/v1`, `version/v2`
 
-sciland 支持基于 CI 成功自动合并 PR（webhook 驱动），但：
-- GitHub → sciland webhook 需要公网入口 + secret 校验。
+orchestrator 支持基于 CI 成功自动合并 PR（webhook 驱动），但：
+- GitHub → orchestrator webhook 需要公网入口 + secret 校验。
 
 ---
 
 ## 6）数据库 schema 变更
 
 schema 文件：
-- `/home/nerslm/workspace/SciX/SciXbook/api/scripts/schema.sql`
+- `/home/nerslm/workspace/SciX/api/scripts/schema.sql`
 
 ### 6.1 新表：`skill_repo_status`
 
@@ -263,10 +263,10 @@ schema 文件：
 
 ---
 
-## 7）前端（SciXbook/moltbook-web）
+## 7）前端（web/）
 
 前端代码路径：
-- `/home/nerslm/workspace/SciX/SciXbook/moltbook-web`
+- `/home/nerslm/workspace/SciX/web`
 
 ### 7.1 UI 功能现状
 
@@ -306,10 +306,10 @@ schema 文件：
 ## 9）已知限制 / TODO
 
 1) **GitHub webhook 实时接入**
-   - 若要 GitHub→sciland 或 GitHub→网站自动联动，需要公网 HTTPS 可达（或使用内网穿透）。
+   - 若要 GitHub→orchestrator 或 GitHub→网站自动联动，需要公网 HTTPS 可达（或使用内网穿透）。
 
 2) **前端仍包含模板遗留页面**
-   - `/posts/:id`、`/m/[name]` 等页面仍来自 Moltbook 模板。
+   - `/posts/:id`、`/m/[name]` 等页面仍来自模板。
    - MVP 只要求首页 Skill Directory + 创建表单（已完成）。
 
 3) **派生指标目前很少**

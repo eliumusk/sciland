@@ -1,10 +1,10 @@
-# Skill 迭代社区（MVP）任务说明（当前决策版）
+:# Skill 迭代社区（MVP）任务说明（当前决策版）
 
 > 目标（最重要的一句话）：
 >
 > **你的网站做“Skill 目录/帖子 + 检索/评价”，GitHub 做“每个 Skill 仓库的迭代”。**
 >
-> 当前 MVP 只要把“写作与索引体验”做出来；`sciland` 是可选的自动化编排底座，用于后续把“发帖→自动建 repo→PR→CI→合并”串起来。
+> 当前 MVP 只要把"写作与索引体验"做出来；`orchestrator` 是可选的自动化编排底座，用于后续把"发帖→自动建 repo→PR→CI→合并"串起来。
 
 ---
 
@@ -35,9 +35,9 @@ GitHub 在这个体系里的角色：
 
 ---
 
-## 2. sciland 项目现在“完整了什么”（你可以把它当作什么组件）
+## 2. orchestrator 项目现在"完整了什么"（你可以把它当作什么组件）
 
-`SciX/sciland` 更像一个 **GitHub 编排服务（orchestrator）**，已经做了这些底座能力：
+`SciX/orchestrator` 更像一个 **GitHub 编排服务（orchestrator）**，已经做了这些底座能力：
 
 ### 2.1 Python / FastAPI（README 主线）
 - 创建 challenge repo（在 GitHub Org 下）：写入 `CHALLENGE.md`
@@ -50,8 +50,8 @@ GitHub 在这个体系里的角色：
 - 也能创建 challenge；更偏“平台代提交内容/轻量提交 API”
 
 ### 2.3 结论（在你当前 MVP 里怎么用）
-- **你现在的目录型 MVP，不依赖 sciland 也能上线**（手动填 GitHub URL）。
-- sciland 适合成为“后续增强功能”：当你要把“发帖→自动创建 GitHub repo”自动化时，再接入。
+- **你现在的目录型 MVP，不依赖 orchestrator 也能上线**（手动填 GitHub URL）。
+- orchestrator 适合成为"后续增强功能"：当你要把"发帖→自动创建 GitHub repo"自动化时，再接入。
 
 ---
 
@@ -97,27 +97,27 @@ GitHub 在这个体系里的角色：
 
 ---
 
-## 5. 网站与 sciland 联动：推荐分三阶段走（不把 MVP 搞复杂）
+## 5. 网站与 orchestrator 联动：推荐分三阶段走（不把 MVP 搞复杂）
 
-### 阶段 0（现在的 MVP）：完全不联动 sciland
+### 阶段 0（现在的 MVP）：完全不联动 orchestrator
 - 你的网站只做目录：录入/编辑 `github_url` 即可。
 
-### 阶段 1（增强：一键建仓库）：把 sciland 当“创建 GitHub repo 的后端能力”
-当你希望用户“发帖创建 skill 时自动得到一个 repo”，再做：
-- 网站新增按钮：**“创建 Skill 并生成 GitHub 仓库”**
-- 网站后端调用 sciland：`POST /api/v1/challenges`（moderator key）
-- sciland 返回 `repo_url`（以及 repo_name 作为 challenge_id）
+### 阶段 1（增强：一键建仓库）：把 orchestrator 当"创建 GitHub repo 的后端能力"
+当你希望用户"发帖创建 skill 时自动得到一个 repo"，再做：
+- 网站新增按钮：**"创建 Skill 并生成 GitHub 仓库"**
+- 网站后端调用 orchestrator：`POST /api/v1/challenges`（moderator key）
+- orchestrator 返回 `repo_url`（以及 repo_name 作为 challenge_id）
 - 网站写入：
   - `github_url = repo_url`
-  - 可选：`sciland_challenge_id = repo_name`（用于后续查询状态）
+  - 可选：`orchestrator_challenge_id = repo_name`（用于后续查询状态）
 
 > 注意：这个阶段仍然不做版本/Release/打包。只是减少“手动建 repo”的摩擦。
 
 ### 阶段 2（增强：展示进度）：在 Skill 详情页显示 PR/CI/合并状态（可选）
-- 方案 A（最省事）：详情页按需调用 sciland：
+- 方案 A（最省事）：详情页按需调用 orchestrator：
   - `GET /api/v1/challenges/{challenge_id}`
   - `GET /api/v1/challenges/{challenge_id}/submissions`
-- 方案 B（更产品化）：网站自己落库状态（需要你接 webhook 或让 sciland 回调你的网站）
+- 方案 B（更产品化）：网站自己落库状态（需要你接 webhook 或让 orchestrator 回调你的网站）
 
 ---
 
@@ -133,10 +133,10 @@ GitHub 在这个体系里的角色：
 - **贡献方式**：参与者在 GitHub 上对 skill 仓库提交改动（fork 或直接分支）并发起 **Pull Request**。
 - **CI（GitHub Actions workflow）**：当 PR 指向约定分支（例如 `version/v1` / `version/v2`）时自动运行检查（测试/校验）。
 - **记录在案**：每一次贡献都会在 GitHub 留下：commit、PR 讨论、以及 CI checks 结果（成功/失败与日志）。
-- **MVP 决策**：社区网站不直接处理代码合并，只需提供 GitHub 链接与贡献入口；是否合并由仓库维护者（或 sciland webhook 自动合并）决定。
+- **MVP 决策**：社区网站不直接处理代码合并，只需提供 GitHub 链接与贡献入口；是否合并由仓库维护者（或 orchestrator webhook 自动合并）决定。
 
 （可选增强）
-6. 接入 sciland 阶段 1：一键建 GitHub repo
+6. 接入 orchestrator 阶段 1：一键建 GitHub repo
 7. 再考虑阶段 2：详情页显示 PR/CI 状态
 
 ---

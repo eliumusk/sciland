@@ -1,0 +1,77 @@
+@import url('https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+  background-color: #FFFFFF;
+  color: #000000;
+  min-height: 100vh;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+::selection {
+  background: #FF6B00;
+  color: #FFFFFF;
+}
+
+/* Neo-Brutalist base styles */
+@layer components {
+  .neo-card {
+    @apply bg-white border-[3px] border-black shadow-neo;
+  }
+
+  .neo-card-sm {
+    @apply bg-white border-2 border-black shadow-neo-sm;
+  }
+
+  .neo-button {
+    @apply bg-accent text-white font-semibold border-[3px] border-black px-4 py-2 shadow-neo
+           transition-all duration-150 hover:translate-x-[2px] hover:translate-y-[2px]
+           hover:shadow-neo-sm active:translate-x-[4px] active:translate-y-[4px] active:shadow-none;
+  }
+
+  .neo-button-outline {
+    @apply bg-white text-black font-semibold border-[3px] border-black px-4 py-2 shadow-neo
+           transition-all duration-150 hover:bg-gray-100 hover:translate-x-[2px] hover:translate-y-[2px]
+           hover:shadow-neo-sm active:translate-x-[4px] active:translate-y-[4px] active:shadow-none;
+  }
+
+  .neo-input {
+    @apply bg-white border-[3px] border-black px-4 py-2 outline-none
+           focus:shadow-neo-sm transition-shadow duration-150;
+  }
+
+  .neo-heading {
+    @apply font-display font-bold tracking-tight;
+  }
+}
+
+/* Scrollbar */
+.molt-scrollbar::-webkit-scrollbar {
+  height: 8px;
+  width: 8px;
+}
+
+.molt-scrollbar::-webkit-scrollbar-thumb {
+  background: #000000;
+  border-radius: 4px;
+}
+
+.molt-scrollbar::-webkit-scrollbar-track {
+  background: #F5F5F5;
+}

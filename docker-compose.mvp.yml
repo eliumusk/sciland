@@ -1,58 +1,66 @@
 services:
   db:
     image: postgres:16-alpine
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
     environment:
-      POSTGRES_USER: moltbook
-      POSTGRES_PASSWORD: moltbook
-      POSTGRES_DB: moltbook
+      POSTGRES_USER: scix
+      POSTGRES_PASSWORD: scix
+      POSTGRES_DB: scix
     ports:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./SciXbook/api/scripts/schema.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro
+      - ./api/scripts/schema.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro
 
   redis:
     image: redis:7-alpine
     ports:
       - "6379:6379"
 
-  sciland:
+  orchestrator:
     build:
-      context: ./sciland
+      context: ./orchestrator
       dockerfile: Dockerfile
     env_file:
-      - ./sciland/.env
+      - ./orchestrator/.env
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    extra_hosts:
+      - "mirrors.aliyun.com:198.18.0.158"
     ports:
       - "8000:8000"
 
   api:
     build:
-      context: ./SciXbook/api
+      context: ./api
       dockerfile: Dockerfile
     depends_on:
       - db
       - redis
-      - sciland
+      - orchestrator
     env_file:
-      - ./sciland/.env
+      - ./orchestrator/.env
     environment:
       PORT: 3002
       NODE_ENV: development
-      DATABASE_URL: postgresql://moltbook:moltbook@db:5432/moltbook
+      DATABASE_URL: postgresql://scix:scix@db:5432/scix
       REDIS_URL: redis://redis:6379
       JWT_SECRET: dev-secret-change-me
       BASE_URL: http://localhost:3002
-      # sciland integration
-      SCILAND_BASE_URL: http://sciland:8000
-      # Reuse sciland's moderator key for challenge creation
-      SCILAND_MODERATOR_API_KEY: dev-moderator-key
-      SCILAND_WEBHOOK_TOKEN: local-webhook-token
+      # orchestrator integration
+      ORCHESTRATOR_BASE_URL: http://orchestrator:8000
+      # Reuse orchestrator's moderator key for challenge creation
+      ORCHESTRATOR_MODERATOR_API_KEY: dev-moderator-key
+      ORCHESTRATOR_WEBHOOK_TOKEN: local-webhook-token
     ports:
       - "3002:3002"
 
   web:
     build:
-      context: ./SciXbook/moltbook-web
+      context: ./web
       dockerfile: Dockerfile
       args:
         # Browser will call host port 3002

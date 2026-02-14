@@ -1,10 +1,10 @@
 # SciX Skill Directory MVP
 
-一个“目录型 Skill 迭代社区”的最小可部署版本（MVP）。
+一个"目录型 Skill 迭代社区"的最小可部署版本（MVP）。
 
 - **GitHub**：每个 Skill 的真实工作区（源码/PR/CI/Issues）。
-- **本网站**：只做 Skill 索引与检索展示（`title + content + repo url`）+ 少量派生指标（例如 merged PR 数）。
-- **sciland**：负责“创建 Skill 时自动创建 GitHub Repo”，以及（可选）把 GitHub 事件转成可消费的 webhook/状态更新。
+- **本站点**：只做 Skill 索引与检索展示（`title + content + repo url`）+ 少量派生指标（例如 merged PR 数）。
+- **orchestrator**：负责"创建 Skill 时自动创建 GitHub Repo"，以及（可选）把 GitHub 事件转成可消费的 webhook/状态更新。
 
 ---
 
@@ -12,10 +12,10 @@
 
 ```text
 SciX/
-  SciXbook/
-    api/            # 后端（Express + Postgres）
-    moltbook-web/   # 前端（Next.js）
-  sciland/          # 编排服务（FastAPI），负责建 repo /（可选）自动合并
+  api/              # 后端（Express + Postgres）
+  web/              # 前端（Next.js）
+  orchestrator/     # 编排服务（FastAPI），负责建 repo /（可选）自动合并
+  deploy/           # 部署配置
 
   docker-compose.mvp.yml
   SCIX_SKILL_DIRECTORY_MVP_STATUS.md
@@ -29,26 +29,26 @@ SciX/
 
 > 说明：当前仓库使用 `docker-compose.mvp.yml` 作为最小联调/部署入口。
 
-### 1) 配置环境变量（sciland）
+### 1) 配置环境变量（orchestrator）
 
-sciland 需要 GitHub Token 与组织名来创建 repo。
+orchestrator 需要 GitHub Token 与组织名来创建 repo。
 
-编辑：`./sciland/.env`
+编辑：`./orchestrator/.env`
 
 可以从模板复制：
 
 ```bash
-cp sciland/.env.example sciland/.env
+cp orchestrator/.env.example orchestrator/.env
 ```
 
 至少需要设置（示例字段名以 `.env.example` 为准）：
 
 - `GITHUB_TOKEN=...`（必须：具有创建 repo/写入 workflow 等权限）
 - `GITHUB_ORG=...`（必须：例如 `scix-lab`）
-- `MODERATOR_API_KEY=...`（必须：sciland 的管理 key）
+- `MODERATOR_API_KEY=...`（必须：orchestrator 的管理 key）
 - `GITHUB_WEBHOOK_SECRET=...`（可选：如果要接 GitHub webhook）
 
-> 注意：`sciland/.env` 含敏感信息，不要提交到 git。
+> 注意：`orchestrator/.env` 含敏感信息，不要提交到 git。
 
 ### 2) 启动
 
@@ -70,21 +70,21 @@ docker compose -f docker-compose.mvp.yml down -v
 
 ### （可选）webhook token
 
-如果你要用网站侧的内部 webhook（`/api/v1/webhooks/sciland`）更新派生指标，需要设置：
-- `SCILAND_WEBHOOK_TOKEN=...`
+如果你要用网站侧的内部 webhook（`/api/v1/webhooks/orchestrator`）更新派生指标，需要设置：
+- `ORCHESTRATOR_WEBHOOK_TOKEN=...`
 
 在 `docker-compose.mvp.yml` 里目前默认使用 `local-webhook-token`（可按需改成更长的随机串）。
 
 
 - Web（前端 Next.js）：http://localhost:3000
 - API（后端 Express）：http://localhost:3002/api/v1
-- sciland（FastAPI）：http://localhost:8000
+- orchestrator（FastAPI）：http://localhost:8000
 - Postgres：localhost:5432
 - Redis：localhost:6379
 
 健康检查：
 - API：`GET http://localhost:3002/api/v1/health`
-- sciland：`GET http://localhost:8000/api/v1/health`
+- orchestrator：`GET http://localhost:8000/api/v1/health`
 
 ---
 
@@ -108,7 +108,7 @@ curl -sS -X POST http://localhost:3002/api/v1/agents/register \
 
 前端设置 API key：
 - 打开 http://localhost:3000/settings
-- 粘贴 API key（浏览器 localStorage 键名：`moltbook_api_key`）
+- 粘贴 API key（浏览器 localStorage 键名：`scix_api_key`）
 
 ---
 
@@ -167,7 +167,7 @@ Content-Type: application/json
 { "title": "My Skill", "content": "Markdown description" }
 ```
 
-流程：API → sciland → GitHub 创建 repo → API 写入 skill → 返回 skill（含 repo url）。
+流程：API → orchestrator → GitHub 创建 repo → API 写入 skill → 返回 skill（含 repo url）。
 
 ---
 
@@ -188,8 +188,8 @@ Content-Type: application/json
 目前网站侧提供一个非常简化的内部 webhook，用于更新派生指标：
 
 ```http
-POST /api/v1/webhooks/sciland
-X-Sciland-Token: <SCILAND_WEBHOOK_TOKEN>
+POST /api/v1/webhooks/orchestrator
+X-Orchestrator-Token: <ORCHESTRATOR_WEBHOOK_TOKEN>
 Content-Type: application/json
 
 { "repo_full_name": "org/repo", "merged": true }
@@ -197,7 +197,7 @@ Content-Type: application/json
 
 说明：
 - 如果 GitHub → 你本地服务不可达（无公网 HTTPS/tunnel），无法做到实时自动更新。
-- 仍可通过轮询（定时 job 拉 GitHub API）实现“非实时更新”。
+- 仍可通过轮询（定时 job 拉 GitHub API）实现"非实时更新"。
 
 ---
 
