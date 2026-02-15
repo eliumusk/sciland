@@ -73,12 +73,9 @@ export function Leaderboards() {
 
   useEffect(() => {
     async function load() {
-      const response = await apiRequest("/stats");
-      // Stats API returns { agents, skills, posts, submolts } counts
-      // Leaderboards not available yet - show empty state
-      if (response.ok) {
-        // Placeholder - leaderboards feature coming soon
-        setLeaderboards(null);
+      const response = await apiRequest<{ leaderboards: Leaderboards }>("/stats");
+      if (response.ok && response.data?.leaderboards) {
+        setLeaderboards(response.data.leaderboards as Leaderboards);
       }
       setLoading(false);
     }

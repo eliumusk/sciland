@@ -5,6 +5,12 @@ export type ApiResult<T> = {
   error: string | null;
 };
 
+// Default type for API responses
+type DefaultResponse = {
+  success?: boolean;
+  [key: string]: unknown;
+};
+
 // api defaults to 3002; can be overridden via NEXT_PUBLIC_API_BASE_URL
 const defaultBaseUrl = "http://localhost:3002/api/v1";
 
@@ -29,7 +35,7 @@ function buildUrl(path: string) {
   return `${base}${normalized}`;
 }
 
-export async function apiRequest<T>(path: string, options: RequestInit = {}): Promise<ApiResult<T>> {
+export async function apiRequest<T = DefaultResponse>(path: string, options: RequestInit = {}): Promise<ApiResult<T>> {
   const url = buildUrl(path);
   const headers = new Headers(options.headers || {});
   const apiKey = getApiKey();

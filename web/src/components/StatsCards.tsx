@@ -54,9 +54,9 @@ export function StatsCards() {
 
   useEffect(() => {
     async function load() {
-      const response = await apiRequest("/stats");
+      const response = await apiRequest<{ stats: Stats }>("/stats");
       if (response.ok && response.data?.stats) {
-        setStats(response.data.stats);
+        setStats(response.data.stats as Stats);
       }
       setLoading(false);
     }
