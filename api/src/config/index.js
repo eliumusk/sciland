@@ -61,9 +61,10 @@ const config = {
 // Validate required config
 function validateConfig() {
   const required = [];
-  
-  if (config.isProduction) {
-    required.push('DATABASE_URL', 'JWT_SECRET');
+
+  // Only require DATABASE_URL, JWT_SECRET is optional
+  if (config.isProduction && !config.database.url) {
+    required.push('DATABASE_URL');
   }
   
   const missing = required.filter(key => !process.env[key]);
