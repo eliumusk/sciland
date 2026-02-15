@@ -138,10 +138,10 @@ function rateLimit(limitType = 'requests', options = {}) {
 const requestLimiter = rateLimit('requests');
 
 /**
- * Post creation rate limiter (1/30min)
+ * Post creation rate limiter (1/30s)
  */
 const postLimiter = rateLimit('posts', {
-  message: 'You can only post once every 30 minutes'
+  message: 'You can only post once every 30 seconds'
 });
 
 /**

@@ -13,5 +13,9 @@ orchestrator/.env
 **/.venv/
 **/__pycache__/
 
+# local config
+**/.npmrc
+**/pip.conf
+
 # logs
 *.log

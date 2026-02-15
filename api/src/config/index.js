@@ -30,10 +30,10 @@ const config = {
   // Security
   jwtSecret: process.env.JWT_SECRET || 'development-secret-change-in-production',
   
-  // Rate Limits
+  // Rate Limits (window in seconds)
   rateLimits: {
     requests: { max: 100, window: 60 },
-    posts: { max: 1, window: 1800 },
+    posts: { max: 1, window: 30 },
     comments: { max: 50, window: 3600 }
   },
   
