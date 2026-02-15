@@ -122,35 +122,72 @@ class ChallengeService:
         ]
         return "\n".join(lines)
 
-    def _build_contributing_md(self, title: str, repo_url: str, repo_name: str) -> str:
-        """Build CONTRIBUTING.md for agent iteration guidance."""
+    def _build_contributing_md(self, title: str, repo_url: str, repo_name: str, org: str) -> str:
+        """Build CONTRIBUTING.md for agent iteration guidance using Fork + PR workflow."""
         lines = [
             "# Agent 贡献指南",
             "",
             f"## 如何迭代本 Skill: {title}",
             "",
-            "### 1. 克隆仓库",
+            "本项目使用 Fork + PR 工作流，无需仓库推送权限即可贡献。",
+            "",
+            "### 1. Fork 仓库",
+            "",
+            f"点击仓库页面右上角的 **Fork** 按钮，将仓库 fork 到你的 GitHub 账号。",
+            "",
+            "或者使用 GitHub API:",
             "```bash",
-            f"git clone {repo_url}",
+            f"curl -X POST https://api.github.com/repos/{org}/{repo_name}/forks \\",
+            "  -H 'Authorization: token $GITHUB_TOKEN'",
+            "```",
+            "",
+            "### 2. 克隆你 fork 的仓库",
+            "",
+            f"将 `<YOUR_USERNAME>` 替换为你的 GitHub 用户名：",
+            "```bash",
+            f"git clone https://github.com/<YOUR_USERNAME>/{repo_name}.git",
             f"cd {repo_name}",
             "```",
             "",
-            "### 2. 创建分支",
+            "### 3. 创建新版本分支",
+            "",
             "```bash",
-            "# 根据当前版本创建新版本分支",
-            "git checkout -b version/v2",
+            "# 基于 main 分支创建新版本分支",
+            "git checkout -b version/v2 main",
+            "# 或如果 version/v1 已存在，基于它创建",
+            "git checkout -b version/v2 version/v1",
             "```",
             "",
-            "### 3. 修改 SKILL.md 和实现代码",
+            "### 4. 修改 SKILL.md 和实现代码",
             "",
-            "### 4. 提交 PR",
+            "### 5. 提交并推送",
             "```bash",
             "git add .",
             'git commit -m "feat: update skill to v2"',
             "git push origin version/v2",
             "```",
             "",
-            "### 5. 等待自动合并",
+            "### 6. 创建 Pull Request",
+            "",
+            "从你的 fork 创建 PR 到原始仓库的 version/v2 分支：",
+            "```bash",
+            f"# 方法 1: 使用 gh CLI（推荐）",
+            f"gh pr create --base version/v2 --head version/v2 \\",
+            '  --title "feat: update skill to v2" \\',
+            '  --body "## 改进\\n- 更新内容"',
+            "",
+            "# 方法 2: 使用 GitHub API",
+            f"curl -X POST https://api.github.com/repos/{org}/{repo_name}/pulls \\",
+            '  -H "Authorization: token $GITHUB_TOKEN" \\',
+            '  -H "Content-Type: application/json" \\',
+            "-d '{",
+            f'    "title": "feat: update skill to v2",',
+            f'    "head": "version/v2",',
+            '    \"base\": \"version/v2\"',
+            "  }'",
+            "```",
+            "",
+            "### 7. 等待自动合并",
             "",
             "- 提交后系统会自动运行 CI",
             "- CI 通过后自动合并到 main 分支",
@@ -264,7 +301,7 @@ class ChallengeService:
 
         # Create CONTRIBUTING.md
         repo_url = repo["html_url"]
-        contributing_content = self._build_contributing_md(title.strip(), repo_url, repo_name)
+        contributing_content = self._build_contributing_md(title.strip(), repo_url, repo_name, owner)
         self.github.put_file(
             owner=owner,
             repo=repo_name,
@@ -382,13 +419,7 @@ class ChallengeService:
             message=f"docs: add problem file {safe_file}",
         )
 
-        self.github.add_repo_collaborator(
-            owner=created["owner"],
-            repo=created["repo_name"],
-            username=requester_github_login.strip(),
-            permission="push",
-        )
-
+        # Note: No collaborator added - using Fork + PR workflow instead
         self.cache.clear("challenges:list")
         return {
             "challenge_id": created["repo_name"],

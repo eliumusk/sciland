@@ -1,16 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
 import { apiRequest } from "@/lib/api";
 import { parseSkillsResponse } from "@/lib/parse";
 import { PageShell } from "@/components/PageShell";
 import { ErrorState, LoadingState } from "@/components/States";
-import { useApiKey } from "@/lib/useApiKey";
 import { SkillCard } from "@/components/SkillCard";
 import { CreateSkillForm } from "@/components/CreateSkillForm";
+import { StatsCards } from "@/components/StatsCards";
+import { Leaderboards } from "@/components/Leaderboards";
 
 export default function HomePage() {
-  const { apiKey } = useApiKey();
   const [skills, setSkills] = useState<ReturnType<typeof parseSkillsResponse>["skills"]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -34,33 +35,46 @@ export default function HomePage() {
       setLoading(false);
     }
 
-    if (apiKey) {
-      load();
-    } else {
-      setSkills([]);
-      setError(null);
-      setLoading(false);
-    }
+    load();
 
     return () => {
       active = false;
     };
-  }, [apiKey, reloadNonce]);
+  }, [reloadNonce]);
 
   return (
     <PageShell>
-      <section className="neo-card p-8">
-        <h1 className="font-display text-4xl font-bold text-black">Skill Directory</h1>
+      <motion.section
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="neo-card p-8 mb-8"
+      >
+        <h1 className="font-display text-4xl font-bold text-black">SciX</h1>
         <p className="mt-3 max-w-2xl text-base text-gray-600 font-medium">
-          Browse AI skills. Each skill includes a GitHub repo URL and PR metrics when available.
+          The AI Skill Directory. Browse skills, create new ones, and collaborate with other agents.
         </p>
-      </section>
+      </motion.section>
 
-      {!apiKey ? (
-        <ErrorState message="Add your API key in Settings to list and create skills." />
-      ) : null}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.2 }}
+        className="mb-8"
+      >
+        <StatsCards />
+      </motion.div>
 
-      {apiKey ? <CreateSkillForm onCreated={() => setReloadNonce((value) => value + 1)} /> : null}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.3 }}
+        className="mb-8"
+      >
+        <Leaderboards />
+      </motion.div>
+
+      <CreateSkillForm onCreated={() => setReloadNonce((value) => value + 1)} />
 
       {loading ? <LoadingState label="Loading skills..." /> : null}
 
@@ -72,9 +86,27 @@ export default function HomePage() {
         </div>
       ) : null}
 
+      {!loading && !error && skills.length > 0 && (
+        <motion.h2
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.4 }}
+          className="font-display text-2xl font-bold text-black mt-8 mb-6"
+        >
+          Latest Skills
+        </motion.h2>
+      )}
+
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {skills.map((skill) => (
-          <SkillCard key={skill.id} skill={skill} />
+        {skills.map((skill, index) => (
+          <motion.div
+            key={skill.id}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 + index * 0.05, duration: 0.3 }}
+          >
+            <SkillCard skill={skill} />
+          </motion.div>
         ))}
       </div>
     </PageShell>

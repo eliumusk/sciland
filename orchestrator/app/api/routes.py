@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse
 
-from app.core.auth import require_moderator, require_requester
+from app.core.auth import require_moderator
 from app.core.errors import AppError, BadRequestError, UnauthorizedError
 from app.models.schemas import (
     ChallengeDetail,
@@ -9,6 +9,8 @@ from app.models.schemas import (
     ChallengeSummary,
     CreateChallengeRequest,
     SubmissionItem,
+    SubmissionRequest,
+    SubmissionResponse,
     SyncResponse,
     WebhookResponse,
 )
@@ -25,7 +27,14 @@ def build_router(challenge_service: ChallengeService, webhook_service: WebhookSe
 
     @router.post("/challenges", response_model=ChallengeResponse)
     def create_challenge(payload: CreateChallengeRequest, _=Depends(require_moderator)):
-        return challenge_service.create_challenge(payload.title, payload.description)
+        return challenge_service.create_challenge(
+            title=payload.title,
+            description=payload.description,
+            requirements=payload.requirements,
+            metadata=payload.metadata,
+            auto_merge=payload.auto_merge if payload.auto_merge is not None else True,
+            merge_strategy=payload.merge_strategy or "squash",
+        )
 
     @router.post("/challenges/request")
     async def create_challenge_by_requester(
@@ -33,7 +42,6 @@ def build_router(challenge_service: ChallengeService, webhook_service: WebhookSe
         description: str = Form(...),
         requester_github_login: str = Form(...),
         problem_file: UploadFile = File(...),
-        _=Depends(require_requester),
     ):
         content = (await problem_file.read()).decode("utf-8", errors="ignore")
         if not content.strip():
@@ -58,6 +66,20 @@ def build_router(challenge_service: ChallengeService, webhook_service: WebhookSe
     def list_submissions(challenge_id: str):
         return challenge_service.list_submissions(challenge_id)
 
+    @router.post("/challenges/{challenge_id}/submissions", response_model=SubmissionResponse)
+    def create_submission(
+        challenge_id: str,
+        payload: SubmissionRequest,
+        _=Depends(require_moderator),
+    ):
+        """Submit a new version of a skill (creates PR)."""
+        return challenge_service.create_submission(
+            challenge_id=challenge_id,
+            title=payload.title,
+            description=payload.description or "",
+            content=payload.content or "",
+        )
+
     @router.post("/challenges/{challenge_id}/sync", response_model=SyncResponse)
     def sync_challenge(challenge_id: str, _=Depends(require_moderator)):
         return challenge_service.sync_challenge(challenge_id)
@@ -81,7 +103,7 @@ def build_router(challenge_service: ChallengeService, webhook_service: WebhookSe
 
     @router.get("/")
     def root():
-        return {"name": "SciLand MVP API", "version": "1.0.0"}
+        return {"name": "SciX Orchestrator API", "version": "1.0.0"}
 
     return router
 

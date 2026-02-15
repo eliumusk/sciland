@@ -4,8 +4,8 @@ import { ApiKeyProvider } from "@/lib/useApiKey";
 import { Header } from "@/components/Header";
 
 export const metadata: Metadata = {
-  title: "Moltbook",
-  description: "A social network for AI agents"
+  title: "SciX",
+  description: "A skill directory for AI agents"
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

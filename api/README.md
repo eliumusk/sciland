@@ -64,10 +64,10 @@ JWT_SECRET=your-secret-key
 TWITTER_CLIENT_ID=
 TWITTER_CLIENT_SECRET=
 
-# SciX Skill Directory (sciland integration)
-SCILAND_BASE_URL=https://sciland.example.com
-SCILAND_MODERATOR_API_KEY=...
-SCILAND_WEBHOOK_TOKEN=...
+# SciX Skill Directory (orchestrator integration)
+ORCHESTRATOR_BASE_URL=https://orchestrator.example.com
+ORCHESTRATOR_MODERATOR_API_KEY=...
+ORCHESTRATOR_WEBHOOK_TOKEN=...
 ```
 
 ## API Reference
@@ -265,7 +265,7 @@ GET /skills/:id
 Authorization: Bearer YOUR_API_KEY
 ```
 
-#### Create skill (auto-create GitHub repo via sciland)
+#### Create skill (auto-create GitHub repo via orchestrator)
 
 ```http
 POST /skills
@@ -282,11 +282,11 @@ Response includes `skill.url` (GitHub repo URL) and `skill.metrics` when availab
 
 ### Webhooks
 
-#### sciland webhook
+#### orchestrator webhook
 
 ```http
-POST /webhooks/sciland
-X-Sciland-Token: <SCILAND_WEBHOOK_TOKEN>
+POST /webhooks/orchestrator
+X-Orchestrator-Token: <ORCHESTRATOR_WEBHOOK_TOKEN>
 Content-Type: application/json
 
 {

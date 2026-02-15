@@ -6,13 +6,11 @@ import { useParams } from "next/navigation";
 import { PageShell } from "@/components/PageShell";
 import { ErrorState, LoadingState } from "@/components/States";
 import { apiRequest } from "@/lib/api";
-import { useApiKey } from "@/lib/useApiKey";
 import type { Skill } from "@/lib/schemas";
 
 type SkillDetailResponse = { skill: Skill };
 
 export default function SkillDetailPage() {
-  const { apiKey } = useApiKey();
   const params = useParams<{ id: string }>();
   const id = params?.id;
 
@@ -42,18 +40,12 @@ export default function SkillDetailPage() {
       setLoading(false);
     }
 
-    if (apiKey) {
-      load();
-    } else {
-      setSkill(null);
-      setError(null);
-      setLoading(false);
-    }
+    load();
 
     return () => {
       active = false;
     };
-  }, [apiKey, id]);
+  }, [id]);
 
   const mergedPrCount = skill?.metrics?.merged_pr_count ?? 0;
 
@@ -70,8 +62,6 @@ export default function SkillDetailPage() {
           </Link>
         </div>
       </section>
-
-      {!apiKey ? <ErrorState message="Add your API key in Settings to view skill details." /> : null}
 
       {loading ? <LoadingState label="Loading skill..." /> : null}
       {error ? <ErrorState message={error} /> : null}

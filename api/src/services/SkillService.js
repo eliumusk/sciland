@@ -7,7 +7,7 @@
 const { queryOne, queryAll, transaction } = require('../config/database');
 const { BadRequestError, NotFoundError, InternalError } = require('../utils/errors');
 const config = require('../config');
-const { createScilandClient } = require('../clients/sciland');
+const { createOrchestratorClient } = require('../clients/orchestrator');
 
 const SKILLS_SUBMOLT = 'skills';
 
@@ -71,7 +71,7 @@ class SkillService {
 
     const rows = await queryAll(
       `SELECT p.id, p.title, p.content, p.url, p.created_at,
-              s.repo_full_name, s.last_activity_at, s.merged_pr_count, s.open_pr_count, s.updated_at
+              s.repo_full_name, s.last_activity_at, s.merged_pr_count, s.open_pr_count, s.updated_at, s.version, s.status
        FROM posts p
        LEFT JOIN skill_repo_status s ON s.post_id = p.id
        ${where}
@@ -86,7 +86,7 @@ class SkillService {
   static async findById(id) {
     const row = await queryOne(
       `SELECT p.id, p.title, p.content, p.url, p.created_at,
-              s.repo_full_name, s.last_activity_at, s.merged_pr_count, s.open_pr_count, s.updated_at
+              s.repo_full_name, s.last_activity_at, s.merged_pr_count, s.open_pr_count, s.updated_at, s.version, s.status
        FROM posts p
        LEFT JOIN skill_repo_status s ON s.post_id = p.id
        WHERE p.id = $1 AND p.submolt = $2 AND p.is_deleted = false`,
@@ -97,7 +97,30 @@ class SkillService {
     return SkillService._toApiSkill(row);
   }
 
-  static async create({ authorId, title, content }) {
+  /**
+   * Get skill version history
+   */
+  static async getVersions(id) {
+    // First check if skill exists
+    const skill = await SkillService.findById(id);
+
+    // Get version history from skill_repo_status
+    const versions = await queryAll(
+      `SELECT version, merged_pr_count as pr_count, last_activity_at as merged_at
+       FROM skill_repo_status
+       WHERE post_id = $1
+       ORDER BY version DESC`,
+      [id]
+    );
+
+    return versions.map(v => ({
+      version: v.version,
+      prCount: v.pr_count,
+      mergedAt: v.merged_at
+    }));
+  }
+
+  static async create({ authorId, title, content, requirements, metadata, automation }) {
     if (!authorId) throw new InternalError('authorId missing');
 
     if (!title || title.trim().length === 0) {
@@ -113,16 +136,23 @@ class SkillService {
       throw new BadRequestError('Content must be 40000 characters or less');
     }
 
-    const orchestrator = createScilandClient({
+    const orchestrator = createOrchestratorClient({
       baseUrl: config.orchestrator.baseUrl,
       apiKey: config.orchestrator.moderatorApiKey
     });
 
-    // Create repo first (external side effect), then commit DB transaction.
-    const challenge = await orchestrator.createChallenge({
+    // Build skill data with requirements
+    const skillData = {
       title: title.trim(),
-      description: content
-    });
+      description: content,
+      requirements: requirements || {},
+      metadata: metadata || {},
+      autoMerge: automation?.autoMerge ?? true,
+      mergeStrategy: automation?.mergeStrategy || 'squash'
+    };
+
+    // Create repo first (external side effect), then commit DB transaction.
+    const challenge = await orchestrator.createChallenge(skillData);
 
     const repoUrl = challenge.repo_url;
     const repoFullName = challenge.repo_full_name || parseGitHubRepoFullNameFromUrl(repoUrl);
@@ -142,11 +172,13 @@ class SkillService {
       // Derived metrics row is optional if repo_full_name isn't known yet.
       if (repoFullName) {
         await client.query(
-          `INSERT INTO skill_repo_status (post_id, repo_full_name, last_activity_at, merged_pr_count, open_pr_count, updated_at)
-           VALUES ($1, $2, NOW(), 0, NULL, NOW())
+          `INSERT INTO skill_repo_status (post_id, repo_full_name, last_activity_at, merged_pr_count, open_pr_count, updated_at, version, status)
+           VALUES ($1, $2, NOW(), 0, NULL, NOW(), 'v1', 'open')
            ON CONFLICT (post_id) DO UPDATE
            SET repo_full_name = EXCLUDED.repo_full_name,
-               updated_at = NOW()`,
+               updated_at = NOW(),
+               version = 'v1',
+               status = 'open'`,
           [post.id, repoFullName]
         );
       }
@@ -157,11 +189,47 @@ class SkillService {
         last_activity_at: new Date().toISOString(),
         merged_pr_count: 0,
         open_pr_count: null,
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
+        version: 'v1',
+        status: 'open'
       };
     });
 
-    return SkillService._toApiSkill(created);
+    const skill = SkillService._toApiSkill(created);
+
+    // Add automation info to response
+    return {
+      ...skill,
+      automation: {
+        webhookUrl: `${config.scix.baseUrl}/api/v1/webhooks/orchestrator`,
+        autoMerge: automation?.autoMerge ?? true,
+        mergeStrategy: automation?.mergeStrategy || 'squash'
+      }
+    };
+  }
+
+  /**
+   * Update skill version after PR merge
+   */
+  static async updateVersion(postId, newVersion) {
+    await queryOne(
+      `UPDATE skill_repo_status
+       SET version = $1, status = 'resolved', updated_at = NOW()
+       WHERE post_id = $2`,
+      [newVersion, postId]
+    );
+  }
+
+  /**
+   * Update skill version by repo_full_name
+   */
+  static async updateVersionByRepo(repoFullName, newVersion) {
+    await queryOne(
+      `UPDATE skill_repo_status
+       SET version = $1, status = 'resolved', updated_at = NOW()
+       WHERE repo_full_name = $2`,
+      [newVersion, repoFullName]
+    );
   }
 
   static _toApiSkill(row) {
@@ -170,6 +238,10 @@ class SkillService {
       title: row.title,
       content: row.content,
       url: row.url,
+      version: row.version || 'v1',
+      status: row.status || 'open',
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
       metrics: row.repo_full_name
         ? {
             repo_full_name: row.repo_full_name,

@@ -1,0 +1,27 @@
+name: skill-ci
+
+on:
+  pull_request:
+    branches:
+      - main
+      - version/v1
+      - version/v2
+      - version/v3
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate SKILL.md exists
+        run: |
+          if [ ! -f SKILL.md ]; then
+            echo "Error: SKILL.md not found"
+            exit 1
+          fi
+      - name: Validate SKILL.md format
+        run: |
+          if ! grep -q "^# Skill:" SKILL.md; then
+            echo "Error: SKILL.md must start with # Skill:"
+            exit 1
+          fi

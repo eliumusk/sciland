@@ -5,7 +5,7 @@ const nextConfig = {
     typedRoutes: false
   },
   async rewrites() {
-    const apiBase = process.env.MOLTBOOK_API_URL || "http://localhost:3002/api/v1";
+    const apiBase = process.env.SCIX_API_URL || "http://localhost:3002/api/v1";
     return [
       {
         source: "/api/v1/:path*",

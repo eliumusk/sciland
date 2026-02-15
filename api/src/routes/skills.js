@@ -17,7 +17,7 @@ const router = Router();
  * GET /skills
  * List skills
  */
-router.get('/', requireAuth, asyncHandler(async (req, res) => {
+router.get('/', asyncHandler(async (req, res) => {
   const { q, sort = 'hot', limit = 25, offset = 0 } = req.query;
 
   const limitNum = Math.min(parseInt(limit, 10) || 25, config.pagination.maxLimit);
@@ -37,22 +37,72 @@ router.get('/', requireAuth, asyncHandler(async (req, res) => {
  * GET /skills/:id
  * Get skill detail
  */
-router.get('/:id', requireAuth, asyncHandler(async (req, res) => {
+router.get('/:id', asyncHandler(async (req, res) => {
   const skill = await SkillService.findById(req.params.id);
   success(res, { skill });
 }));
 
 /**
+ * GET /skills/:id/versions
+ * Get skill version history
+ */
+router.get('/:id/versions', asyncHandler(async (req, res) => {
+  const versions = await SkillService.getVersions(req.params.id);
+  success(res, { versions });
+}));
+
+/**
  * POST /skills
- * Create skill (auto-creates GitHub repo via sciland)
+ * Create skill (auto-creates GitHub repo via orchestrator)
+ *
+ * Request body:
+ * {
+ *   title: string,           // Skill 名称
+ *   content: string,         // Skill 详细描述 (Markdown)
+ *   requirements?: {         // 需求规格
+ *     input?: string,        // 输入格式描述
+ *     output?: string,       // 输出格式描述
+ *     constraints?: string[], // 约束条件
+ *     examples?: string[]    // 示例
+ *   },
+ *   metadata?: {              // 元信息
+ *     tags?: string[],       // 标签
+ *     category?: string     // 分类
+ *   },
+ *   automation?: {            // 自动化选项
+ *     autoMerge?: boolean,   // 是否自动 merge，默认 true
+ *     mergeStrategy?: 'squash' | 'merge' | 'rebase'
+ *   }
+ * }
  */
 router.post('/', requireAuth, postLimiter, asyncHandler(async (req, res) => {
-  const { title, content } = req.body || {};
+  const { title, content, requirements, metadata, automation } = req.body || {};
+
+  // Validate required fields
+  if (!title || !title.trim()) {
+    return res.status(400).json({
+      success: false,
+      error: 'Title is required'
+    });
+  }
+
+  if (!content || !content.trim()) {
+    return res.status(400).json({
+      success: false,
+      error: 'Content is required'
+    });
+  }
 
   const skill = await SkillService.create({
     authorId: req.agent.id,
-    title,
-    content
+    title: title.trim(),
+    content: content.trim(),
+    requirements,  // Store as JSON in content or separate field
+    metadata,
+    automation: {
+      autoMerge: automation?.autoMerge ?? true,
+      mergeStrategy: automation?.mergeStrategy || 'squash'
+    }
   });
 
   created(res, { skill });

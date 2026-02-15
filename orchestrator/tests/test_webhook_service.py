@@ -38,7 +38,7 @@ def test_auto_merge_when_checks_success():
 
     payload = {
         'action': 'opened',
-        'repository': {'name': 'challenge-test-123', 'owner': {'login': 'SciLand-9'}},
+        'repository': {'name': 'challenge-test-123', 'owner': {'login': 'SciX-Skill'}},
         'pull_request': {'number': 1},
     }
 
@@ -53,7 +53,7 @@ def test_no_auto_merge_for_wrong_base_branch():
 
     payload = {
         'action': 'opened',
-        'repository': {'name': 'challenge-test-123', 'owner': {'login': 'SciLand-9'}},
+        'repository': {'name': 'challenge-test-123', 'owner': {'login': 'SciX-Skill'}},
         'pull_request': {'number': 1},
     }
 

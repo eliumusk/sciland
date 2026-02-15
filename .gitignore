@@ -5,7 +5,7 @@
 a.env
 .env
 **/.env
-sciland/.env
+orchestrator/.env
 
 # node/python artifacts
 **/node_modules/

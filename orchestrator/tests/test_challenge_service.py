@@ -9,9 +9,9 @@ class FakeGithub:
         self.created_repo = name
         return {
             'name': name,
-            'html_url': f'https://github.com/SciLand-9/{name}',
+            'html_url': f'https://github.com/SciX-9/{name}',
             'default_branch': 'main',
-            'owner': {'login': 'SciLand-9'},
+            'owner': {'login': 'SciX-9'},
         }
 
     def get_branch(self, owner, repo, branch):
@@ -30,21 +30,21 @@ class FakeGithub:
         return [
             {
                 'name': 'challenge-demo-abc123',
-                'description': 'SciLand challenge: Demo',
-                'html_url': 'https://github.com/SciLand-9/challenge-demo-abc123',
+                'description': 'SciX challenge: Demo',
+                'html_url': 'https://github.com/SciX-9/challenge-demo-abc123',
                 'default_branch': 'main',
             },
             {
                 'name': 'random-repo',
                 'description': 'x',
-                'html_url': 'https://github.com/SciLand-9/random-repo',
+                'html_url': 'https://github.com/SciX-9/random-repo',
                 'default_branch': 'main',
             },
         ]
 
     def get_repo(self, owner, repo):
         return {
-            'description': 'SciLand challenge: Demo',
+            'description': 'SciX challenge: Demo',
             'html_url': f'https://github.com/{owner}/{repo}',
             'default_branch': 'main',
         }

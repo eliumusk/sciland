@@ -7,7 +7,7 @@ const { BadRequestError } = require('../utils/errors');
 
 class SkillRepoStatusService {
   /**
-   * Update derived metrics based on sciland webhook payload.
+   * Update derived metrics based on orchestrator webhook payload.
    *
    * @param {Object} payload
    * @param {string} payload.repo_full_name
@@ -16,7 +16,7 @@ class SkillRepoStatusService {
    * @param {Function} deps.queryOne
    * @returns {Promise<Object|null>} updated row or null if not found
    */
-  static async applyScilandWebhook(payload, deps = {}) {
+  static async applyOrchestratorWebhook(payload, deps = {}) {
     // Avoid loading DB dependencies (pg) in unit tests that inject queryOne.
     const q1 = deps.queryOne || require('../config/database').queryOne;
 

@@ -158,9 +158,9 @@ describe('Config', () => {
   });
 });
 
-describe('sciland client', () => {
-  test('createChallenge calls sciland endpoint with auth', async () => {
-    const { createScilandClient } = require('../src/clients/sciland');
+describe('orchestrator client', () => {
+  test('createChallenge calls orchestrator endpoint with auth', async () => {
+    const { createOrchestratorClient } = require('../src/clients/orchestrator');
 
     let called = null;
     const fetchImpl = async (url, init) => {
@@ -172,8 +172,8 @@ describe('sciland client', () => {
       };
     };
 
-    const client = createScilandClient({
-      baseUrl: 'https://sciland.example.com/',
+    const client = createOrchestratorClient({
+      baseUrl: 'https://orchestrator.example.com/',
       apiKey: 'test-key',
       fetchImpl
     });
@@ -182,7 +182,7 @@ describe('sciland client', () => {
     assertEqual(out.repo_url, 'https://github.com/org/repo');
 
     assert(called, 'fetch should be called');
-    assertEqual(called.url, 'https://sciland.example.com/api/v1/challenges');
+    assertEqual(called.url, 'https://orchestrator.example.com/api/v1/challenges');
     assertEqual(called.init.method, 'POST');
     assertEqual(called.init.headers.Authorization, 'Bearer test-key');
     assertEqual(called.init.headers['Content-Type'], 'application/json');
@@ -193,7 +193,7 @@ describe('sciland client', () => {
   });
 
   test('createChallenge throws on non-2xx', async () => {
-    const { createScilandClient } = require('../src/clients/sciland');
+    const { createOrchestratorClient } = require('../src/clients/orchestrator');
 
     const fetchImpl = async () => ({
       ok: false,
@@ -202,8 +202,8 @@ describe('sciland client', () => {
       text: async () => 'boom'
     });
 
-    const client = createScilandClient({
-      baseUrl: 'https://sciland.example.com',
+    const client = createOrchestratorClient({
+      baseUrl: 'https://orchestrator.example.com',
       apiKey: 'test-key',
       fetchImpl
     });
@@ -213,14 +213,14 @@ describe('sciland client', () => {
       await client.createChallenge({ title: 'T', description: 'D' });
     } catch (e) {
       threw = true;
-      assert(String(e.message).includes('sciland error'), 'should include sciland error');
+      assert(String(e.message).includes('orchestrator error'), 'should include orchestrator error');
     }
     assert(threw, 'should throw');
   });
 });
 
-describe('sciland webhook handler', () => {
-  test('applyScilandWebhook increments merged_pr_count when merged=true', async () => {
+describe('orchestrator webhook handler', () => {
+  test('applyOrchestratorWebhook increments merged_pr_count when merged=true', async () => {
     const SkillRepoStatusService = require('../src/services/SkillRepoStatusService');
 
     let params = null;
@@ -236,7 +236,7 @@ describe('sciland webhook handler', () => {
       };
     };
 
-    const out = await SkillRepoStatusService.applyScilandWebhook(
+    const out = await SkillRepoStatusService.applyOrchestratorWebhook(
       { repo_full_name: 'org/repo', merged: true },
       { queryOne: mockQueryOne }
     );
@@ -246,7 +246,7 @@ describe('sciland webhook handler', () => {
     assertEqual(params[1], 1);
   });
 
-  test('applyScilandWebhook does not increment when merged=false', async () => {
+  test('applyOrchestratorWebhook does not increment when merged=false', async () => {
     const SkillRepoStatusService = require('../src/services/SkillRepoStatusService');
 
     let params = null;
@@ -255,7 +255,7 @@ describe('sciland webhook handler', () => {
       return { post_id: 'post-1', repo_full_name: p[0], merged_pr_count: 2 };
     };
 
-    await SkillRepoStatusService.applyScilandWebhook(
+    await SkillRepoStatusService.applyOrchestratorWebhook(
       { repo_full_name: 'org/repo', merged: false },
       { queryOne: mockQueryOne }
     );

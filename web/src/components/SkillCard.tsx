@@ -8,7 +8,7 @@ export function SkillCard({ skill }: { skill: Skill }) {
   const repoUrl = skill.url ?? "";
 
   return (
-    <article className="neo-card p-6 transition-transform hover:-translate-y-1">
+    <article className="neo-card p-6 transition-all duration-200 hover:-translate-y-1 hover:shadow-neo-lg">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
           <h3 className="font-display text-xl font-bold text-black">

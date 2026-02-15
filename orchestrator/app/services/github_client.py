@@ -139,6 +139,28 @@ class GithubClient:
     def get_pull(self, owner: str, repo: str, pull_number: int) -> Dict[str, Any]:
         return self._request("GET", f"/repos/{owner}/{repo}/pulls/{pull_number}")
 
+    def create_pull(
+        self,
+        owner: str,
+        repo: str,
+        title: str,
+        description: str,
+        head: str,
+        base: str = "main",
+    ) -> Dict[str, Any]:
+        """Create a pull request."""
+        return self._request(
+            "POST",
+            f"/repos/{owner}/{repo}/pulls",
+            expected=(200, 201),
+            json_body={
+                "title": title,
+                "body": description,
+                "head": head,
+                "base": base,
+            },
+        )
+
     def merge_pull(self, owner: str, repo: str, pull_number: int, commit_title: str):
         return self._request(
             "PUT",
@@ -147,14 +169,6 @@ class GithubClient:
                 "commit_title": commit_title,
                 "merge_method": "squash",
             },
-        )
-
-    def add_repo_collaborator(self, owner: str, repo: str, username: str, permission: str = "push"):
-        return self._request(
-            "PUT",
-            f"/repos/{owner}/{repo}/collaborators/{username}",
-            expected=(201, 204),
-            json_body={"permission": permission},
         )
 
     def get_check_runs(self, owner: str, repo: str, ref: str) -> Dict[str, Any]:

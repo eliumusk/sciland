@@ -7,7 +7,6 @@ class Settings(BaseSettings):
     port: int = Field(8000, env="PORT")
 
     github_token: str = Field("", env="GITHUB_TOKEN")
-    github_token2: str = Field("", env="GITHUB_TOKEN2")
     github_org: str = Field("SciX-Skill", env="GITHUB_ORG")
     github_api_base: str = Field("https://api.github.com", env="GITHUB_API_BASE")
 

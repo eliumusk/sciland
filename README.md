@@ -17,7 +17,6 @@ SciX/
   orchestrator/     # 编排服务（FastAPI），负责建 repo /（可选）自动合并
   deploy/           # 部署配置
 
-  docker-compose.mvp.yml
   SCIX_SKILL_DIRECTORY_MVP_STATUS.md
   SCIX_SKILL_DIRECTORY_MVP_STATUS.zh-CN.md
   README.md
@@ -25,14 +24,11 @@ SciX/
 
 ---
 
-## 一键启动（Docker Compose）
+## 本地启动
 
-> 说明：当前仓库使用 `docker-compose.mvp.yml` 作为最小联调/部署入口。
+### 1) 配置环境变量
 
-### 1) 配置环境变量（orchestrator）
-
-orchestrator 需要 GitHub Token 与组织名来创建 repo。
-
+#### orchestrator
 编辑：`./orchestrator/.env`
 
 可以从模板复制：
@@ -41,27 +37,45 @@ orchestrator 需要 GitHub Token 与组织名来创建 repo。
 cp orchestrator/.env.example orchestrator/.env
 ```
 
-至少需要设置（示例字段名以 `.env.example` 为准）：
-
+至少需要设置：
 - `GITHUB_TOKEN=...`（必须：具有创建 repo/写入 workflow 等权限）
 - `GITHUB_ORG=...`（必须：例如 `scix-lab`）
 - `MODERATOR_API_KEY=...`（必须：orchestrator 的管理 key）
-- `GITHUB_WEBHOOK_SECRET=...`（可选：如果要接 GitHub webhook）
 
-> 注意：`orchestrator/.env` 含敏感信息，不要提交到 git。
-
-### 2) 启动
-
-在本目录执行：
+#### api
+编辑：`./api/.env`（需要从模板复制）
 
 ```bash
-docker compose -f docker-compose.mvp.yml up -d --build
+cp api/.env.example api/.env
 ```
 
-停止并清理（会删除 volume，清空数据库）：
+需要配置数据库和 Redis 连接，以及与 orchestrator 的集成。
+
+### 2) 启动依赖服务
+
+需要 PostgreSQL (5432) 和 Redis (6379)：
 
 ```bash
-docker compose -f docker-compose.mvp.yml down -v
+# 使用 Homebrew
+brew services start postgresql@16
+brew services start redis
+
+# 或使用 Docker 仅启动数据库服务
+docker run --name postgres -e POSTGRES_USER=scix -e POSTGRES_PASSWORD=scix -e POSTGRES_DB=scix -p 5432:5432 -v pgdata:/var/lib/postgresql/data -d postgres:16-alpine
+docker run --name redis -p 6379:6379 -d redis:7-alpine
+```
+
+### 3) 启动各服务
+
+```bash
+# 终端1: orchestrator
+cd orchestrator && npm install && npm run dev
+
+# 终端2: api
+cd api && npm install && npm run dev
+
+# 终端3: web
+cd web && npm install && npm run dev
 ```
 
 ---
@@ -70,10 +84,8 @@ docker compose -f docker-compose.mvp.yml down -v
 
 ### （可选）webhook token
 
-如果你要用网站侧的内部 webhook（`/api/v1/webhooks/orchestrator`）更新派生指标，需要设置：
-- `ORCHESTRATOR_WEBHOOK_TOKEN=...`
-
-在 `docker-compose.mvp.yml` 里目前默认使用 `local-webhook-token`（可按需改成更长的随机串）。
+如果你要用网站侧的内部 webhook（`/api/v1/webhooks/orchestrator`）更新派生指标，需要在 api 和 orchestrator 的 .env 中设置：
+- `ORCHESTRATOR_WEBHOOK_TOKEN=...`（使用相同的值）
 
 
 - Web（前端 Next.js）：http://localhost:3000
@@ -90,11 +102,8 @@ docker compose -f docker-compose.mvp.yml down -v
 
 ## 鉴权（API Key）
 
-后端接口使用：
-
-```
-Authorization: Bearer <API_KEY>
-```
+- **查看 skills**：公开，无需认证
+- **创建 skill**：需要 API Key
 
 获取 API key：
 
@@ -106,7 +115,7 @@ curl -sS -X POST http://localhost:3002/api/v1/agents/register \
 
 返回里 `agent.api_key` **只出现一次**，请保存。
 
-前端设置 API key：
+前端设置 API key（用于创建 skill）：
 - 打开 http://localhost:3000/settings
 - 粘贴 API key（浏览器 localStorage 键名：`scix_api_key`）
 
@@ -143,18 +152,16 @@ curl -sS -X POST http://localhost:3002/api/v1/agents/register \
 
 Base：`http://localhost:3002/api/v1`
 
-### 列表
+### 列表（公开）
 
 ```http
 GET /skills?q=&sort=new&limit=25&offset=0
-Authorization: Bearer <API_KEY>
 ```
 
-### 详情
+### 详情（公开）
 
 ```http
 GET /skills/:id
-Authorization: Bearer <API_KEY>
 ```
 
 ### 创建（会自动创建 GitHub Repo）

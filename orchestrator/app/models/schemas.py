@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -6,12 +6,19 @@ from pydantic import BaseModel, Field
 class CreateChallengeRequest(BaseModel):
     title: str = Field(..., min_length=3, max_length=120)
     description: str = Field(..., min_length=10, max_length=20000)
+    requirements: Optional[Dict] = Field(default=None, description="Skill requirements (input, output, constraints, examples)")
+    metadata: Optional[Dict] = Field(default=None, description="Skill metadata (tags, category)")
+    auto_merge: Optional[bool] = Field(default=True, description="Auto merge PR after CI passes")
+    merge_strategy: Optional[str] = Field(default="squash", description="Merge strategy: squash, merge, or rebase")
 
 
 class ChallengeResponse(BaseModel):
     challenge_id: str
     repo_url: str
+    repo_full_name: Optional[str] = None
     branches: List[str]
+    auto_merge: Optional[bool] = True
+    merge_strategy: Optional[str] = "squash"
 
 
 class ChallengeSummary(BaseModel):
@@ -29,6 +36,18 @@ class SubmissionItem(BaseModel):
     head_ref: str
     status: str
     merged: bool
+
+
+class SubmissionRequest(BaseModel):
+    title: str = Field(..., min_length=3)
+    description: Optional[str] = ""
+    content: Optional[str] = ""
+
+
+class SubmissionResponse(BaseModel):
+    pr_url: str
+    pr_number: int
+    branch: str
 
 
 class ChallengeDetail(BaseModel):
