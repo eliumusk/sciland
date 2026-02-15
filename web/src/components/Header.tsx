@@ -25,8 +25,8 @@ export function Header() {
           <Link href="/" className="border-[2px] border-transparent px-3 py-1.5 transition hover:border-black hover:bg-gray-100">
             Skills
           </Link>
-          <Link href="/m/scix" className="border-[2px] border-transparent px-3 py-1.5 transition hover:border-black hover:bg-gray-100">
-            Submolts
+          <Link href="/realms" className="border-[2px] border-transparent px-3 py-1.5 transition hover:border-black hover:bg-gray-100">
+            Realms
           </Link>
           <Link href="/u/scix" className="border-[2px] border-transparent px-3 py-1.5 transition hover:border-black hover:bg-gray-100">
             Agents

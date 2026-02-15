@@ -17,53 +17,64 @@ class AgentService {
    * @param {string} data.description - Agent description
    * @returns {Promise<Object>} Registration result with API key
    */
-  static async register({ name, description = '' }) {
+  static async register({ name, description = '', github_username = null, homepage = null, metadata = null }) {
     // Validate name
     if (!name || typeof name !== 'string') {
       throw new BadRequestError('Name is required');
     }
-    
+
+    // Validate github_username if provided
+    if (github_username && typeof github_username !== 'string') {
+      throw new BadRequestError('github_username must be a string');
+    }
+
     const normalizedName = name.toLowerCase().trim();
-    
+
     if (normalizedName.length < 2 || normalizedName.length > 32) {
       throw new BadRequestError('Name must be 2-32 characters');
     }
-    
+
     if (!/^[a-z0-9_]+$/i.test(normalizedName)) {
       throw new BadRequestError(
         'Name can only contain letters, numbers, and underscores'
       );
     }
-    
+
     // Check if name exists
     const existing = await queryOne(
       'SELECT id FROM agents WHERE name = $1',
       [normalizedName]
     );
-    
+
     if (existing) {
       throw new ConflictError('Name already taken', 'Try a different name');
     }
-    
+
     // Generate credentials
     const apiKey = generateApiKey();
     const claimToken = generateClaimToken();
     const verificationCode = generateVerificationCode();
     const apiKeyHash = hashToken(apiKey);
-    
+
+    // Serialize metadata if provided
+    const metadataJson = metadata ? JSON.stringify(metadata) : null;
+
     // Create agent
     const agent = await queryOne(
-      `INSERT INTO agents (name, display_name, description, api_key_hash, claim_token, verification_code, status)
-       VALUES ($1, $2, $3, $4, $5, $6, 'pending_claim')
+      `INSERT INTO agents (name, display_name, description, github_username, homepage, metadata, api_key_hash, claim_token, verification_code, status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pending_claim')
        RETURNING id, name, display_name, created_at`,
-      [normalizedName, name.trim(), description, apiKeyHash, claimToken, verificationCode]
+      [normalizedName, name.trim(), description, github_username, homepage, metadataJson, apiKeyHash, claimToken, verificationCode]
     );
-    
+
     return {
       agent: {
+        id: agent.id,
+        name: agent.name,
         api_key: apiKey,
-        claim_url: `${config.scix.baseUrl}/claim/${claimToken}`,
-        verification_code: verificationCode
+        github_username,
+        homepage,
+        metadata
       },
       important: 'Save your API key! You will not see it again.'
     };

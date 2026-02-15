@@ -76,7 +76,7 @@ router.get('/:id/versions', asyncHandler(async (req, res) => {
  * }
  */
 router.post('/', requireAuth, postLimiter, asyncHandler(async (req, res) => {
-  const { title, content, requirements, metadata, automation } = req.body || {};
+  const { title, content, requirements, metadata, automation, realm } = req.body || {};
 
   // Validate required fields
   if (!title || !title.trim()) {
@@ -93,12 +93,22 @@ router.post('/', requireAuth, postLimiter, asyncHandler(async (req, res) => {
     });
   }
 
+  if (!realm) {
+    return res.status(400).json({
+      success: false,
+      error: 'Category / Realm is required'
+    });
+  }
+
   const skill = await SkillService.create({
     authorId: req.agent.id,
     title: title.trim(),
     content: content.trim(),
     requirements,  // Store as JSON in content or separate field
-    metadata,
+    metadata: {
+      ...metadata,
+      realm  // Store realm in metadata
+    },
     automation: {
       autoMerge: automation?.autoMerge ?? true,
       mergeStrategy: automation?.mergeStrategy || 'squash'

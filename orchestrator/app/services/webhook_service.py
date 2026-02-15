@@ -27,7 +27,8 @@ class WebhookService:
         return hmac.compare_digest(signature_header, expected)
 
     def _is_allowed_base(self, base_ref: str) -> bool:
-        return base_ref in settings.parsed_version_branches
+        # 新逻辑：允许 PR 指向 main 分支
+        return base_ref in ["main", "master"]
 
     def _is_ci_success(self, owner: str, repo: str, sha: str) -> bool:
         checks = self.github.get_check_runs(owner, repo, sha)
@@ -41,6 +42,38 @@ class WebhookService:
             if run.get("conclusion") != "success":
                 return False
         return True
+
+    def _get_next_version(self, owner: str, repo: str) -> int:
+        """获取下一个版本号"""
+        try:
+            branches = self.github.list_branches(owner, repo)
+            existing_versions = []
+            for branch in branches:
+                name = branch.get("name", "")
+                if name.startswith("version/v"):
+                    try:
+                        v = int(name.split("/")[-1].replace("v", ""))
+                        existing_versions.append(v)
+                    except ValueError:
+                        pass
+            if not existing_versions:
+                return 1
+            return max(existing_versions) + 1
+        except Exception:
+            return 1
+
+    def _create_version_branch(self, owner: str, repo: str, version: int) -> None:
+        """根据最新的 main 分支创建 version 分支"""
+        try:
+            # 获取 main 分支的最新 commit SHA
+            main_branch = self.github.get_branch(owner, repo, "main")
+            main_sha = main_branch["commit"]["sha"]
+            # 创建 version/v{n} 分支
+            self.github.ensure_branch(owner, repo, f"version/v{version}", main_sha)
+            # 保护 version 分支
+            self.github.protect_branch(owner, repo, f"version/v{version}")
+        except Exception as e:
+            print(f"Failed to create version branch: {e}")
 
     def _try_auto_merge(self, owner: str, repo: str, pull_number: int) -> bool:
         pr = self.github.get_pull(owner, repo, pull_number)
@@ -60,6 +93,11 @@ class WebhookService:
             pull_number=pull_number,
             commit_title=f"auto-merge: PR #{pull_number}",
         )
+
+        # merge 成功后，自动创建下一个 version 分支
+        next_version = self._get_next_version(owner, repo)
+        self._create_version_branch(owner, repo, next_version)
+
         return True
 
     def _collect_pr_numbers_from_check_event(self, payload: Dict) -> List[int]:
@@ -81,7 +119,8 @@ class WebhookService:
         repo_name = repo.get("name", "")
         owner = repo.get("owner", {}).get("login", settings.github_org)
 
-        if not repo_name.startswith(f"{settings.challenge_repo_prefix}-"):
+        # 新仓库命名规则：xxx-skill（如 abacus-skill）
+        if not repo_name.endswith("-skill"):
             return {"ok": True, "action": action, "processed": False}
 
         merged = False

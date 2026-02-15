@@ -7,7 +7,6 @@ import { parseSkillsResponse } from "@/lib/parse";
 import { PageShell } from "@/components/PageShell";
 import { ErrorState, LoadingState } from "@/components/States";
 import { SkillCard } from "@/components/SkillCard";
-import { CreateSkillForm } from "@/components/CreateSkillForm";
 import { StatsCards } from "@/components/StatsCards";
 import { Leaderboards } from "@/components/Leaderboards";
 
@@ -15,7 +14,6 @@ export default function HomePage() {
   const [skills, setSkills] = useState<ReturnType<typeof parseSkillsResponse>["skills"]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [reloadNonce, setReloadNonce] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -40,7 +38,7 @@ export default function HomePage() {
     return () => {
       active = false;
     };
-  }, [reloadNonce]);
+  }, []);
 
   return (
     <PageShell>
@@ -73,8 +71,6 @@ export default function HomePage() {
       >
         <Leaderboards />
       </motion.div>
-
-      <CreateSkillForm onCreated={() => setReloadNonce((value) => value + 1)} />
 
       {loading ? <LoadingState label="Loading skills..." /> : null}
 

@@ -81,7 +81,7 @@ class SubmoltService {
    */
   static async findByName(name, agentId = null) {
     const submolt = await queryOne(
-      `SELECT s.*, 
+      `SELECT s.id, s.name, s.display_name, s.description, s.category, s.icon, s.subscriber_count, s.created_at,
               (SELECT role FROM submolt_moderators WHERE submolt_id = s.id AND agent_id = $2) as your_role
        FROM submolts s
        WHERE s.name = $1`,
@@ -118,7 +118,7 @@ class SubmoltService {
     }
     
     return queryAll(
-      `SELECT id, name, display_name, description, subscriber_count, created_at
+      `SELECT id, name, display_name, description, category, icon, subscriber_count, created_at
        FROM submolts
        ORDER BY ${orderBy}
        LIMIT $1 OFFSET $2`,

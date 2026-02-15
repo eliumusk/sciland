@@ -75,6 +75,10 @@ class GithubClient:
     def get_branch(self, owner: str, repo: str, branch: str) -> Dict[str, Any]:
         return self._request("GET", f"/repos/{owner}/{repo}/branches/{branch}")
 
+    def list_branches(self, owner: str, repo: str) -> List[Dict[str, Any]]:
+        """列出所有分支"""
+        return self._request("GET", f"/repos/{owner}/{repo}/branches")
+
     def create_branch(self, owner: str, repo: str, branch: str, sha: str):
         return self._request(
             "POST",
@@ -90,18 +94,38 @@ class GithubClient:
         except NotFoundError:
             self.create_branch(owner, repo, branch, base_sha)
 
+    def get_file(self, owner: str, repo: str, path: str, ref: str = None) -> Optional[Dict[str, Any]]:
+        """Get file info including SHA."""
+        encoded_path = "/".join(requests.utils.quote(segment, safe="") for segment in path.split("/"))
+        url = f"/repos/{owner}/{repo}/contents/{encoded_path}"
+        if ref:
+            url += f"?ref={ref}"
+        try:
+            return self._request("GET", url)
+        except NotFoundError:
+            return None
+
     def put_file(self, owner: str, repo: str, branch: str, path: str, content: str, message: str):
         encoded = base64.b64encode(content.encode("utf-8")).decode("ascii")
         encoded_path = "/".join(requests.utils.quote(segment, safe="") for segment in path.split("/"))
+
+        # Check if file already exists to get SHA
+        json_body = {
+            "message": message,
+            "branch": branch,
+            "content": encoded,
+        }
+
+        # Try to get existing file SHA for update
+        existing_file = self.get_file(owner, repo, path, branch)
+        if existing_file and isinstance(existing_file, dict) and existing_file.get("sha"):
+            json_body["sha"] = existing_file["sha"]
+
         return self._request(
             "PUT",
             f"/repos/{owner}/{repo}/contents/{encoded_path}",
             expected=(200, 201),
-            json_body={
-                "message": message,
-                "branch": branch,
-                "content": encoded,
-            },
+            json_body=json_body,
         )
 
     def protect_branch(self, owner: str, repo: str, branch: str):
