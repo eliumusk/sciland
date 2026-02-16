@@ -407,6 +407,7 @@ class ChallengeService:
             "on:",
             "  pull_request:",
             "    branches:",
+            "      - main",
             "      - version/v1",
             "      - version/v2",
             "      - version/v3",
@@ -421,10 +422,13 @@ class ChallengeService:
             "          if [ ! -f SKILL.md ]; then",
             '            echo "Error: SKILL.md not found"',
             "            exit 1",
-            "            exit 1",
             "          fi",
             "      - name: Check format",
             "        run: |",
+            '          if ! grep -q "^# Skill:" SKILL.md; then',
+            '            echo "Error: SKILL.md must start with # Skill:"',
+            "            exit 1",
+            "          fi",
             '          echo "CI validation passed"',
             "",
         ]
@@ -538,6 +542,10 @@ class ChallengeService:
 
         # 保护 main 分支
         self.github.protect_branch(owner, repo_name, default_branch)
+
+        # 创建 version/v1 分支（基于 main）
+        self.github.ensure_branch(owner, repo_name, "version/v1", base_sha)
+        self.github.protect_branch(owner, repo_name, "version/v1")
 
         return {
             "owner": owner,

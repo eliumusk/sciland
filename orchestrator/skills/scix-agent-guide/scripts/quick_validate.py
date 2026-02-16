@@ -1,56 +1,88 @@
 #!/usr/bin/env python3
 """
-Quick validation for SciX Skills.
+Quick validation script for skills.
 Checks SKILL.md structure and required fields.
 """
 
 import sys
+import re
+import yaml
 from pathlib import Path
 
 
-def validate(skill_dir: Path) -> bool:
-    """Validate skill structure."""
+def validate_skill(skill_path):
+    """Validate skill structure and required fields."""
+    skill_path = Path(skill_path)
 
-    skill_md = skill_dir / "SKILL.md"
-
+    # Check SKILL.md exists
+    skill_md = skill_path / 'SKILL.md'
     if not skill_md.exists():
-        print("Error: SKILL.md not found")
-        return False
+        return False, "SKILL.md not found"
 
+    # Read and validate frontmatter
     content = skill_md.read_text()
-
-    # Check frontmatter
-    if not content.startswith("---"):
-        print("Error: Missing YAML frontmatter")
-        return False
+    if not content.startswith('---'):
+        return False, "No YAML frontmatter found"
 
     # Extract frontmatter
-    lines = content.split("\n")
-    frontmatter_end = -1
-    for i, line in enumerate(lines[1:], 1):
-        if line.strip() == "---":
-            frontmatter_end = i
-            break
+    match = re.match(r'^---\n(.*?)\n---', content, re.DOTALL)
+    if not match:
+        return False, "Invalid frontmatter format"
 
-    if frontmatter_end == -1:
-        print("Error: Missing closing --- in frontmatter")
-        return False
+    frontmatter_text = match.group(1)
 
-    frontmatter = "\n".join(lines[1:frontmatter_end])
+    # Parse YAML frontmatter
+    try:
+        frontmatter = yaml.safe_load(frontmatter_text)
+        if not isinstance(frontmatter, dict):
+            return False, "Frontmatter must be a YAML dictionary"
+    except yaml.YAMLError as e:
+        return False, f"Invalid YAML in frontmatter: {e}"
 
-    if "name:" not in frontmatter:
-        print("Error: Missing 'name' in frontmatter")
-        return False
+    # Check allowed properties
+    ALLOWED_PROPERTIES = {'name', 'description', 'license', 'allowed-tools', 'metadata'}
+    unexpected_keys = set(frontmatter.keys()) - ALLOWED_PROPERTIES
+    if unexpected_keys:
+        return False, f"Unexpected key(s): {', '.join(sorted(unexpected_keys))}"
 
-    if "description:" not in frontmatter:
-        print("Error: Missing 'description' in frontmatter")
-        return False
+    # Check required fields
+    if 'name' not in frontmatter:
+        return False, "Missing 'name' in frontmatter"
+    if 'description' not in frontmatter:
+        return False, "Missing 'description' in frontmatter"
 
-    print("Validation passed!")
-    return True
+    # Validate name format
+    name = frontmatter.get('name', '')
+    if not isinstance(name, str):
+        return False, f"Name must be a string, got {type(name).__name__}"
+    name = name.strip()
+    if name:
+        if not re.match(r'^[a-z0-9-]+$', name):
+            return False, f"Name '{name}' should be hyphen-case (lowercase, digits, hyphens only)"
+        if name.startswith('-') or name.endswith('-') or '--' in name:
+            return False, f"Name '{name}' cannot start/end with hyphen or contain consecutive hyphens"
+        if len(name) > 64:
+            return False, f"Name is too long ({len(name)} chars). Max is 64."
+
+    # Validate description
+    description = frontmatter.get('description', '')
+    if not isinstance(description, str):
+        return False, f"Description must be a string, got {type(description).__name__}"
+    description = description.strip()
+    if description:
+        if '<' in description or '>' in description:
+            return False, "Description cannot contain angle brackets (< or >)"
+        if len(description) > 1024:
+            return False, f"Description is too long ({len(description)} chars). Max is 1024."
+
+    return True, "Skill is valid!"
 
 
 if __name__ == "__main__":
-    skill_dir = Path(sys.argv[1] if len(sys.argv) > 1 else ".")
-    success = validate(skill_dir)
-    sys.exit(0 if success else 1)
+    if len(sys.argv) != 2:
+        print("Usage: python quick_validate.py <skill_directory>")
+        sys.exit(1)
+
+    valid, message = validate_skill(sys.argv[1])
+    print(message)
+    sys.exit(0 if valid else 1)

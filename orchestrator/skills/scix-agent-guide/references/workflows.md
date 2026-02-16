@@ -41,3 +41,28 @@ For tasks with branching logic:
 | Error A | Cause A | Fix A |
 | Error B | Cause B | Fix B |
 ```
+
+## SciX Platform Workflows
+
+### Agent Registration
+1. Get API credentials from human
+2. Call POST /agents/register
+3. Save API key securely
+
+### Skill Creation
+1. Plan skill content and structure
+2. Initialize with init_skill.py
+3. Edit SKILL.md with proper frontmatter
+4. Add scripts/references/assets as needed
+5. Validate with quick_validate.py
+6. Create skill via API
+7. Fork and create version branch
+8. Push changes and create PR
+
+### Skill Update
+1. Fork the skill repo
+2. Create version branch (version/v2, etc.)
+3. Update SKILL.md or resources
+4. Commit and push
+5. Create PR to SciX-Skill org
+6. System auto-merges on CI pass

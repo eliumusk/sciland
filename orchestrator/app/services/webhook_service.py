@@ -27,8 +27,8 @@ class WebhookService:
         return hmac.compare_digest(signature_header, expected)
 
     def _is_allowed_base(self, base_ref: str) -> bool:
-        # 新逻辑：允许 PR 指向 main 分支
-        return base_ref in ["main", "master"]
+        # PR 指向 main（首次）或 version/v* 时自动合并
+        return base_ref == "main" or base_ref.startswith("version/v")
 
     def _is_ci_success(self, owner: str, repo: str, sha: str) -> bool:
         checks = self.github.get_check_runs(owner, repo, sha)
@@ -62,41 +62,80 @@ class WebhookService:
         except Exception:
             return 1
 
-    def _create_version_branch(self, owner: str, repo: str, version: int) -> None:
-        """根据最新的 main 分支创建 version 分支"""
+    def _revert_main(self, owner: str, repo: str, sha: str) -> None:
+        """ revert main 到指定 SHA"""
         try:
-            # 获取 main 分支的最新 commit SHA
-            main_branch = self.github.get_branch(owner, repo, "main")
-            main_sha = main_branch["commit"]["sha"]
-            # 创建 version/v{n} 分支
-            self.github.ensure_branch(owner, repo, f"version/v{version}", main_sha)
+            import requests
+            # Force push main back to the previous SHA
+            url = f"https://api.github.com/repos/{owner}/{repo}/git/refs/heads/main"
+            response = requests.patch(
+                url,
+                headers={"Authorization": f"Bearer {self.github.token}"},
+                json={"sha": sha, "force": True},
+                timeout=10
+            )
+            if response.status_code == 200:
+                print(f"Reverted main to {sha}")
+            else:
+                print(f"Failed to revert main: {response.text}")
+        except Exception as e:
+            print(f"Failed to revert main: {e}")
+
+    def _create_next_version_branch(self, owner: str, repo: str, base_ref: str, current_sha: str) -> None:
+        """创建下一个 version 分支（基于 PR 指向的分支）"""
+        try:
+            # PR 到 main 时，创建 version/v1
+            # PR 到 version/vN 时，创建 version/v(N+1)
+            if base_ref == "main":
+                next_version = 1
+            else:
+                current_version = int(base_ref.split("/")[-1].replace("v", ""))
+                next_version = current_version + 1
+
+            # 用合并后的 SHA 创建下一个 version 分支
+            self.github.ensure_branch(owner, repo, f"version/v{next_version}", current_sha)
+
             # 保护 version 分支
-            self.github.protect_branch(owner, repo, f"version/v{version}")
+            self.github.protect_branch(owner, repo, f"version/v{next_version}")
+
+            print(f"Created version/v{next_version}")
         except Exception as e:
             print(f"Failed to create version branch: {e}")
 
-    def _try_auto_merge(self, owner: str, repo: str, pull_number: int) -> bool:
+    def _enable_auto_merge_and_version(self, owner: str, repo: str, pull_number: int) -> bool:
+        """启用 PR 自动合并，并创建下一个 version 分支"""
         pr = self.github.get_pull(owner, repo, pull_number)
 
         if pr.get("state") != "open":
             return False
-        if not self._is_allowed_base(pr["base"]["ref"]):
+
+        base_ref = pr["base"]["ref"]
+        if not self._is_allowed_base(base_ref):
             return False
 
+        # 检查 CI 是否通过
         head_sha = pr["head"]["sha"]
         if not self._is_ci_success(owner, repo, head_sha):
             return False
 
-        self.github.merge_pull(
-            owner=owner,
-            repo=repo,
-            pull_number=pull_number,
-            commit_title=f"auto-merge: PR #{pull_number}",
-        )
+        # 启用 GitHub 自动合并
+        try:
+            self.github.enable_auto_merge(owner, repo, pull_number)
+            print(f"Enabled auto-merge for PR #{pull_number}")
+        except Exception as e:
+            print(f"Failed to enable auto-merge: {e}")
+            return False
 
-        # merge 成功后，自动创建下一个 version 分支
-        next_version = self._get_next_version(owner, repo)
-        self._create_version_branch(owner, repo, next_version)
+        # 获取合并后的 SHA 来创建下一个 version 分支
+        try:
+            merged_pr = self.github.get_pull(owner, repo, pull_number)
+            merged_sha = merged_pr.get("merge_commit_sha")
+            if merged_sha:
+                self._create_next_version_branch(owner, repo, base_ref, merged_sha)
+        except Exception as e:
+            print(f"Failed to get merged SHA: {e}")
+
+        return True
 
         return True
 
@@ -128,11 +167,11 @@ class WebhookService:
         if event == "pull_request" and action in {"opened", "synchronize", "reopened"}:
             pull_number = payload.get("pull_request", {}).get("number")
             if isinstance(pull_number, int):
-                merged = self._try_auto_merge(owner, repo_name, pull_number)
+                merged = self._enable_auto_merge_and_version(owner, repo_name, pull_number)
 
         elif event in {"check_run", "check_suite"} and action == "completed":
             for number in self._collect_pr_numbers_from_check_event(payload):
-                if self._try_auto_merge(owner, repo_name, number):
+                if self._enable_auto_merge_and_version(owner, repo_name, number):
                     merged = True
 
         elif event == "pull_request" and action == "closed":

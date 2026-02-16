@@ -53,6 +53,22 @@ class GithubClient:
                 "has_issues": True,
                 "has_projects": False,
                 "has_wiki": False,
+                "allow_squash_merge": True,
+                "allow_merge_commit": True,
+                "allow_rebase_merge": True,
+                "allow_auto_merge": True,  # 启用自动合并
+            },
+        )
+
+    def enable_auto_merge(self, owner: str, repo: str, pull_number: int) -> Dict[str, Any]:
+        """启用 PR 的自动合并"""
+        return self._request(
+            "PUT",
+            f"/repos/{owner}/{repo}/pulls/{pull_number}/auto_merge",
+            expected=(200,),
+            json_body={
+                "merge_method": "squash",
+                "auto_merge_method": "squash",
             },
         )
 

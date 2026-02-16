@@ -1,75 +1,95 @@
 #!/usr/bin/env python3
 """
-Package a SciX Skill into a distributable .skill file.
-Validates the skill before packaging.
+Skill Packager - Creates a distributable .skill file of a skill folder
+
+Usage:
+    python package_skill.py <path/to/skill-folder> [output-directory]
+
+Example:
+    python package_skill.py skills/public/my-skill
+    python package_skill.py skills/public/my-skill ./dist
 """
 
 import sys
 import zipfile
 from pathlib import Path
+from quick_validate import validate_skill
 
 
-def validate_skill(skill_dir: Path) -> bool:
-    """Validate skill structure and required files."""
+def package_skill(skill_path, output_dir=None):
+    """Package a skill folder into a .skill file."""
+    skill_path = Path(skill_path).resolve()
 
-    # Check SKILL.md exists
-    skill_md = skill_dir / "SKILL.md"
+    # Validate skill folder exists
+    if not skill_path.exists():
+        print(f"Error: Skill folder not found: {skill_path}")
+        return None
+
+    if not skill_path.is_dir():
+        print(f"Error: Path is not a directory: {skill_path}")
+        return None
+
+    # Validate SKILL.md exists
+    skill_md = skill_path / "SKILL.md"
     if not skill_md.exists():
-        print("Error: SKILL.md not found")
-        return False
+        print(f"Error: SKILL.md not found in {skill_path}")
+        return None
 
-    # Check frontmatter
-    content = skill_md.read_text()
-    if not content.startswith("---"):
-        print("Error: SKILL.md must start with YAML frontmatter (---)")
-        return False
+    # Run validation before packaging
+    print("Validating skill...")
+    valid, message = validate_skill(skill_path)
+    if not valid:
+        print(f"Validation failed: {message}")
+        print("Please fix the validation errors before packaging.")
+        return None
+    print(f"{message}\n")
 
-    if "name:" not in content or "description:" not in content:
-        print("Error: SKILL.md frontmatter must include name and description")
-        return False
+    # Determine output location
+    skill_name = skill_path.name
+    if output_dir:
+        output_path = Path(output_dir).resolve()
+        output_path.mkdir(parents=True, exist_ok=True)
+    else:
+        output_path = Path.cwd()
 
-    print("Validation passed!")
-    return True
+    skill_filename = output_path / f"{skill_name}.skill"
+
+    # Create the .skill file (zip format)
+    try:
+        with zipfile.ZipFile(skill_filename, 'w', zipfile.ZIP_DEFLATED) as zipf:
+            for file_path in skill_path.rglob('*'):
+                if file_path.is_file():
+                    arcname = file_path.relative_to(skill_path)
+                    zipf.write(file_path, arcname)
+                    print(f"Added: {arcname}")
+
+        print(f"\nPackaged skill to: {skill_filename}")
+        return skill_filename
+
+    except Exception as e:
+        print(f"Error creating .skill file: {e}")
+        return None
 
 
-def package_skill(skill_dir: Path, output_dir: Path = None) -> bool:
-    """Package skill into a .skill file (zip)."""
+def main():
+    if len(sys.argv) < 2:
+        print("Usage: python package_skill.py <path/to/skill-folder> [output-directory]")
+        print("\nExample:")
+        print("  python package_skill.py skills/public/my-skill")
+        print("  python package_skill.py skills/public/my-skill ./dist")
+        sys.exit(1)
 
-    if not skill_dir.exists():
-        print(f"Error: Directory {skill_dir} not found")
-        return False
+    skill_path = sys.argv[1]
+    output_dir = sys.argv[2] if len(sys.argv) > 2 else None
 
-    # Validate first
-    if not validate_skill(skill_dir):
-        return False
+    print(f"Packaging skill: {skill_path}")
+    if output_dir:
+        print(f"Output directory: {output_dir}")
+    print()
 
-    # Determine output
-    if output_dir is None:
-        output_dir = skill_dir.parent
-    output_dir = Path(output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    # Create .skill file (zip with .skill extension)
-    skill_name = skill_dir.name
-    output_file = output_dir / f"{skill_name}.skill"
-
-    with zipfile.ZipFile(output_file, 'w', zipfile.ZIP_DEFLATED) as zf:
-        for file in skill_dir.rglob('*'):
-            if file.is_file():
-                arcname = file.relative_to(skill_dir)
-                zf.write(file, arcname)
-
-    print(f"Packaged: {output_file}")
-    return True
+    result = package_skill(skill_path, output_dir)
+    sys.exit(0 if result else 1)
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python package_skill.py <skill-dir> [output-dir]")
-        sys.exit(1)
-
-    skill_dir = Path(sys.argv[1])
-    output_dir = Path(sys.argv[2]) if len(sys.argv) > 2 else None
-
-    success = package_skill(skill_dir, output_dir)
-    sys.exit(0 if success else 1)
+    main()
